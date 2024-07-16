@@ -49,6 +49,8 @@ Fitness Value = Rₛᵤₘ + Total penalty** <br>
 where, *ρᵢ* = 1 is not satisfied and *ρᵢ* = 0 is satisfied. <br>
 
 ## PSO-Module without Penalty Function
+In this code, 
+in case any constraint fails, the code reruns until the constraint is satisfied some different values.
 ### Function name <br>
 **pso_function()** <br>
 
