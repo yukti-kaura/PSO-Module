@@ -101,9 +101,9 @@ def pso_function(parameter_values, bounds, n_particles, m_iterations, inertia, c
                 if not conditions(temp_con):
                     particles[i][j] -= new_velocity
                     velocities[i][j] = 0
-        #Printing
-        # if (iter % 50 == 0) or iter == (max_iterations-1):
-            print(f"Iteration {iter}: Value = {iteration_best_values[iter]}")
+
+   # if (iter % 100 == 0) or iter == (max_iterations-1):
+        print(f"Iteration {iter}: Value = {iteration_best_values[iter]}")
 
     return iteration_best_values
 
@@ -416,7 +416,8 @@ def conditions(para):
     condition_4 = np.abs(H_21_2).item() > np.abs(H_22_2).item()
     condition_5 = P_11 <= P_11_max and P_22 <= P_22_max and P_21 <= P_21_max and P_12 <= P_12_max
     condition_6 = P_dash_11 <= P_dash_11_max and P_dash_22 <= P_dash_22_max and P_21 <= P_dash_21_max and P_dash_12 <= P_dash_12_max
-    if (condition_1 and condition_2 and condition_3 and condition_4 and condition_5 and condition_6):
+    # print(condition_1 , condition_2 , condition_5 , condition_6)
+    if (condition_1 and condition_2  and condition_5 and condition_6):
         return True
     return False
 
