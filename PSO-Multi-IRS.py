@@ -26,7 +26,28 @@ def unflatten(flat_list, structure):
         return result
     return helper(structure)
 
-def pso_function(parameter_values, bounds, n_particles, m_iterations, inertia, cognitive, social):
+def flatten(lst):
+    flat_list = []
+    for item in lst:
+        if isinstance(item, list):
+            flat_list.extend(flatten(item))
+        else:
+            flat_list.append(item)
+    return flat_list
+
+def unflatten(flat_list, structure):
+    flat_iter = iter(flat_list)
+    def helper(struct):
+        result = []
+        for elem in struct:
+            if isinstance(elem, list):
+                result.append(helper(elem))
+            else:
+                result.append(next(flat_iter))
+        return result
+    return helper(structure)
+
+def pso_function(parameter, bounds, n_particles, m_iterations, inertia, cognitive, social):
 
     print("PSO Algorithm Started")
 
@@ -36,7 +57,7 @@ def pso_function(parameter_values, bounds, n_particles, m_iterations, inertia, c
     c1 = cognitive  # cognitive constant
     c2 = social  # social constant
 
-    para = flatten(parameter_values)
+    para = flatten(parameter)
     len_para = len(para)
     update_bounds = flatten(bounds)
 
@@ -50,10 +71,10 @@ def pso_function(parameter_values, bounds, n_particles, m_iterations, inertia, c
 
     for _ in range(num_particles):
         particle = [random.uniform(bounds[i][0], bounds[i][1]) for i in range(len_para)]
-        temp_con = unflatten(particle, parameter_values)
+        temp_con = unflatten(particle, parameter)
         while (conditions(temp_con) == False):
             particle = [random.uniform(bounds[i][0], bounds[i][1]) for i in range(len_para)]
-            temp_con = unflatten(particle, parameter_values)
+            temp_con = unflatten(particle, parameter)
         particles.append(particle)
         velocities.append([0] * (len_para))
         pbest.append(particle[:])
@@ -63,11 +84,11 @@ def pso_function(parameter_values, bounds, n_particles, m_iterations, inertia, c
         iteration_best_value = -float('inf')
         for i in range(num_particles):
             current_position = particles[i]
-            temp = unflatten(current_position, parameter_values)
+            temp = unflatten(current_position, parameter)
             fitness = objective_function(temp)
 
             # Update personal best
-            temp = unflatten(pbest[i], parameter_values)
+            temp = unflatten(pbest[i], parameter)
             if fitness > objective_function(temp):
                 pbest[i] = current_position[:]
 
@@ -92,18 +113,19 @@ def pso_function(parameter_values, bounds, n_particles, m_iterations, inertia, c
                 new_position = particles[i][j] + new_velocity
 
                 new_position = max(min(new_position, update_bounds[j][1]), update_bounds[j][0])
-
+                old_position = particles[i][j]
+                old_velocity = velocities[i][j]
                 # Update only if the new position satisfies the condition
                 particles[i][j] = new_position
                 velocities[i][j] = new_velocity
 
-                temp_con = unflatten(particles[i], parameter_values)
+                temp_con = unflatten(particles[i], parameter)
                 if not conditions(temp_con):
-                    particles[i][j] -= new_velocity
-                    velocities[i][j] = 0
-
-   # if (iter % 100 == 0) or iter == (max_iterations-1):
-        print(f"Iteration {iter}: Value = {iteration_best_values[iter]}")
+                    particles[i][j] = old_position
+                    velocities[i][j] = old_velocity
+        #Printing
+        if (iter % 100 == 0) or iter == (max_iterations-1):
+                print(f"Iteration {iter}: Value = {iteration_best_values[iter]}")
 
     return iteration_best_values
 
@@ -123,11 +145,11 @@ zeta_IB = [random.uniform(0, 1) for _ in range(N)]
 theta_IB = [random.uniform(0, 2*math.pi) for _ in range(N)]
 
 #### Initialize PSO parameters ####
-n_particles = 30
-m_iterations = 200
-inertia= 0.5
-cognitive = 0.5
-social = 0.5
+n_particles = 100
+m_iterations = 1000
+inertia= 0.7
+cognitive = 1.4
+social = 1.4
 
 ### Bounds ###
 # bounds = [(0,1)]*(2*M+1)+[(0,1)]*K+[(0,1)]*N+[(0,2*math.pi)]*(2*N)
@@ -192,8 +214,8 @@ par =  zeta_I1, zeta_I2,  zeta_IB, theta_I1,theta_I2, theta_IB, P_11, P_12, P_21
 
 def find_min(a, b):
   if(a > b):
-    return a
-  return b
+    return b
+  return a
 
 def generate_channel(N, K, path_loss):
     h = (1/np.sqrt(2)) * (np.random.randn(N, K) + 1j * np.random.randn(N, K))
@@ -257,7 +279,10 @@ def reinit():
     ####################### Reflection co-efficient matrix for IRS_2 (I2) #########################
 
     ### Only one phase coefficient matrix is assumed as it is NOT STAR IRS ###
-    phi_I2_value = [math.sqrt(zeta) * math.exp(theta) for zeta, theta in zip(zeta_I2, theta_I2)]
+    try:
+        phi_I2_value = [math.sqrt(zeta) * math.exp(theta) for zeta, theta in zip(zeta_I2, theta_I2)]
+    except ValueError as e:
+        print(e.args, e, zeta_I2, theta_I2)
 
     ### Generate a complex matrix ###
     phi_I2 = np.zeros((N, N), dtype=complex)
