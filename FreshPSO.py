@@ -88,8 +88,6 @@ def generate_channel (trans, receive, path_loss, M=2):
     return h_sr
 
 
-
-
 def get_pathloss(d, los=True):
    ### 3GPP 38.901
    # PL_LOS=31.84+21.50 log_10(d_3D )+19.00 log_10(f_c )
@@ -385,7 +383,7 @@ def penalty_pso_function(particles, pbest, velocities, r1, r2):
             if fitness > iteration_best_value:
                 iteration_best_value = fitness
 
-            # Record the best value found in this iteration
+            # Record the best value found in` this iteration
         iteration_best_values.append(iteration_best_value)
 
 
