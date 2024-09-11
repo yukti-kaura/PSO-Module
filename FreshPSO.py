@@ -3,19 +3,33 @@ import copy
 import numpy as np
 import math
 import random
+import matplotlib.pyplot as plt
+plt.style.use('fivethirtyeight')
 
 ### Distance (in m) ###
-D_11_I1 = 20
-D_12_I1 = 30
+D_11_I1 = 10
+D_12_I1 = 13
 D_21_I2 = 15
-D_22_I2 = 21
+D_22_I2 = 18
+
+
+
 D_1_IB = 5
 D_2_IB = 9
+
 D_I1_1 = 4
-D_I2_2 = 4
+D_I2_1 = 8
+
+D_I2_2 = 6
+D_I1_2 = 10
+
 D_IB_B = 10
-D_2_I1 = 8
-D_1_I2 = 8
+
+
+
+
+
+
 D_12_1 = 40
 D_11_1 = 30
 D_22_2 = 25
@@ -78,7 +92,7 @@ def Rician_Fading_Channels(M,N,dist,pl, Kdb):
     return H
 
 
-def generate_channel (trans, receive, path_loss, M=2):
+def generate_channel(trans, receive, path_loss, M=2):
     msr = M
     var_sr = path_loss
     x1 = np.random.gamma(msr,(var_sr)/msr,size=(trans,receive))
@@ -88,19 +102,34 @@ def generate_channel (trans, receive, path_loss, M=2):
     return h_sr
 
 
-def get_pathloss(d, los=True):
+def get_pathloss(d, los=True, type="DH"):
+   # InF - SL Indoor Factory  with Sparse clutter and Low base station height (both Tx and Rx are below the average height of the clutter)
+   # InF - DL Indoor Factory with Dense clutter and Low base station height (both Tx and Rx are below the average height of the clutter)
+   # InF - SH Indoor Factory with Sparse clutter and High base station height (Tx or Rx elevated above the clutter)
+   # InF - DH Indoor Factory with Dense clutter and High base station height (Tx or Rx elevated above the clutter)
+   # InF - HH Indoor Factory with High Tx and High Rx (both elevated above the clutter)
    ### 3GPP 38.901
    # PL_LOS=31.84+21.50 log_10(d_3D )+19.00 log_10(f_c )
    # InF-DH: PL=33.63+21.9 log_10(d_3D )+20 log_10(f_c )
    # PL_NLOS=max(PL,PL_LOS)
    f = 3.5*math.e**9 ###  carrier frequency in Hz
    pl_LOS = 31.84 + 21.50 * math.log10(d) + 19.00 * math.log10(f)
+   pl_LOS = math.sqrt(10 ** ((- pl_LOS) / 10))
+   # return pl_LOS
    if(los):
     pl_LOS = math.sqrt(10 ** ((- pl_LOS) / 10))
     return pl_LOS
    else:
-    pl = 33.63+21.9*math.log10(d)+20*math.log(f)
-    pl_NLOS = max(pl, pl_LOS)
+    PL_INFSL = 33 + 25.5 * math.log10(d) + 20 * math.log10(f)
+    PL_INFDL = 18.6 + 35.7 * math.log10(d) + 20 * math.log10(f)
+    PL_INFDH = 33.63 + 21.9 * math.log10(d) + 20 * math.log(f)
+    PL_INFSH = 32.4 + 23.0 * math.log10(d) + 20 * math.log10(f)
+    if(type == "DH"):
+        pl_NLOS = max(PL_INFDH, pl_LOS)
+    elif(type == "DL"):
+        pl_NLOS = max(PL_INFDL, pl_LOS, PL_INFSL)
+    elif(type == "SH"):
+        pl_NLOS = max(PL_INFSH, pl_LOS)
     pl_NLOS = math.sqrt(10 ** ((- pl_NLOS) / 10))
     return pl_NLOS
    # if(los):
@@ -109,6 +138,16 @@ def get_pathloss(d, los=True):
    #      pl = 32.6 + 36.7 * math.log10(d)
    #     ### Convert to Transmit SINR ###
    #      return math.sqrt(10**((- pl) / 10))
+   # InF - SL: PL = 33 + 25.5log_10⁡(d_3D) + 20log_10⁡(f_c)
+   # 〖PL〗_NLOS = max⁡(PL,〖PL〗_LOS)
+   #
+   # InF - DL: PL = 18.6 + 35.7
+   # log_10⁡(d_3D) + 20   log_10⁡(f_c)
+   # 〖PL〗_NLOS = max⁡(PL,〖PL〗_LOS, 〖PL〗_(InF-SL))
+   #
+   # InF - SH
+   # PL = 32.4 + 23.0log_10⁡(d_3D) + 20log_10⁡(f_c)
+   # 〖PL〗_NLOS = max⁡(PL,〖PL〗_LOS)
 
 
 def init_channel():
@@ -120,9 +159,9 @@ def init_channel():
     channels.append(h_11_I1)
     h_12_I1 = generate_channel(1, N, get_pathloss(D_12_I1))
     channels.append(h_12_I1)
-    h_12_1 = generate_channel(1, 1, get_pathloss(D_12_1, False), 1)
+    h_12_1 = generate_channel(1, 1, get_pathloss(D_12_1, False, type="DL"), 1)
     channels.append(h_12_1)
-    h_11_1 = generate_channel(1, 1, get_pathloss(D_11_1, False), 1)
+    h_11_1 = generate_channel(1, 1, get_pathloss(D_11_1, False, type="DL"), 1)
     channels.append(h_11_1)
 
     h_I2_2 = generate_channel(N, 1, get_pathloss(D_I2_2))
@@ -131,9 +170,9 @@ def init_channel():
     channels.append(h_21_I2)
     h_22_I2 = generate_channel(1, N, get_pathloss(D_22_I2))
     channels.append(h_22_I2)
-    h_21_2 = generate_channel(1, 1, get_pathloss(D_21_2, False), 1)
+    h_21_2 = generate_channel(1, 1, get_pathloss(D_21_2, False, type="DL"), 1)
     channels.append(h_21_2)
-    h_22_2 = generate_channel(1, 1, get_pathloss(D_22_2, False), 1)
+    h_22_2 = generate_channel(1, 1, get_pathloss(D_22_2, False, type="DL"), 1)
     channels.append(h_22_2)
 
     h_IB_B = generate_channel(N, 1, get_pathloss(D_IB_B))
@@ -142,9 +181,9 @@ def init_channel():
     channels.append(h_2_IB)
     h_1_IB = generate_channel(1, N, get_pathloss(D_1_IB))
     channels.append(h_1_IB)
-    h_2_B = generate_channel(1, 1, get_pathloss(D_2_B, False), 1)
+    h_2_B = generate_channel(1, 1, get_pathloss(D_2_B, False, type="SH"), 1)
     channels.append(h_2_B)
-    h_1_B = generate_channel(1, 1, get_pathloss(D_1_B, False), 1)
+    h_1_B = generate_channel(1, 1, get_pathloss(D_1_B, False, type="SH"), 1)
     channels.append(h_1_B)
 
     ### Interference link path loss
@@ -157,10 +196,10 @@ def init_channel():
     channels.append(h_IB_2)
 
     ### Interference  from IRS 1 (I1) to Relay 2 (R2)
-    h_I1_2 = generate_channel(N, 1, get_pathloss(D_2_I1))
+    h_I1_2 = generate_channel(N, 1, get_pathloss(D_I1_2))
     channels.append(h_I1_2)
     ### Interference  from IRS 2 (I2) to Relay 1 (R1)
-    h_I2_1 = generate_channel(N, 1, get_pathloss(D_1_I2))
+    h_I2_1 = generate_channel(N, 1, get_pathloss(D_I2_1))
     channels.append(h_I2_1)
 
     ## Duplexing interference ###
@@ -332,7 +371,7 @@ c1 = 1.4
 c2 = 1.4
 m_iterations = 250
 n_particles = 100
-mc_count = 100
+mc_count = 50
 r1 = []
 r2 = []
 
@@ -409,7 +448,7 @@ def penalty_pso_function(particles, pbest, velocities, r1, r2):
         # if (iter % 100 == 0) or iter == (m_iterations-1):
                 # print(f"Iteration {iter}: Value = {iteration_best_values[iter]}")
 
-    return iteration_best_values[m_iterations-1]
+    return iteration_best_values, iteration_best_values[m_iterations-1]
 
 particles, velocities, pbest = init_particles()
 init_channel()
@@ -431,12 +470,19 @@ r2 = np.load('r2.npz')
 r2 = r2 [r2.files[0]].tolist()
 h_I1_1, h_11_I1, h_12_I1, h_12_1, h_11_1, h_I2_2, h_21_I2, h_22_I2, h_21_2, h_22_2, h_IB_B, h_2_IB, h_1_IB, h_2_B, h_1_B, h_IB_1, h_IB_2, h_I1_2, h_I2_1, h_1_1, h_2_2 = channels
 
-def calc_sum_rate():
+
+x =  range(1,m_iterations+1)
+def calc_sum_rate(type):
     print(f"P_max:{P_12_max}")
     bval_list = []
+    best_val_iter_list = []
     for i in range(mc_count):
-        best_val = penalty_pso_function(particles, velocities, pbest, r1[i], r2[i])
+        best_val_iter, best_val = penalty_pso_function(particles, velocities, pbest, r1[i], r2[i])
         bval_list.append(best_val)
+        best_val_iter_list.append(best_val_iter)
+    pso_convergence = np.mean(best_val_iter_list, axis=0, dtype=np.float64)
+    np.savez('pso_convergence.npz',pso_convergence)
+    plt.plot(x, pso_convergence, marker="o", markevery=5,label=f'{type}')
     print('Mean Sum Rate:', np.mean(bval_list))
 
 print("====Full IRS========")
@@ -444,8 +490,9 @@ gamma = 1
 mu = 1
 alpha = 1
 beta = 1
+type="Full IRS"
 # # R_11_th = R_12_th = R_21_th = R_22_th = 2
-# # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 2
+# # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 2x`
 # P_11_max = P_12_max = P_21_max = P_22_max = 2
 # calc_sum_rate()
 #
@@ -472,7 +519,7 @@ beta = 1
 # # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 0.05
 # # R_11_th = R_12_th = R_21_th = R_22_th = 0.05
 # P_11_max = P_12_max = P_21_max = P_22_max = 0.05
-# calc_sum_rate()
+calc_sum_rate(type)
 
 
 print("========== No IRS =========")
@@ -480,6 +527,7 @@ gamma = 1
 mu = 0
 alpha = 1
 beta = 1
+type = "No IRS"
 
 # # R_11_th = R_12_th = R_21_th = R_22_th = 2
 # # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 2
@@ -509,13 +557,14 @@ beta = 1
 # # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 0.05
 # # R_11_th = R_12_th = R_21_th = R_22_th = 0.05
 # P_11_max = P_12_max = P_21_max = P_22_max = 0.05
-# calc_sum_rate()
+calc_sum_rate(type)
 
 print("==========No IRS between Device and Relay============")
-# gamma = 1
-# mu = 1
-# alpha = 0
-# beta = 1
+gamma = 1
+mu = 1
+alpha = 0
+beta = 1
+type="No IRS between Device and Relay"
 #
 # # # R_11_th = R_12_th = R_21_th = R_22_th = 2
 # # # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 2
@@ -545,13 +594,14 @@ print("==========No IRS between Device and Relay============")
 # # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 0.05
 # # R_11_th = R_12_th = R_21_th = R_22_th = 0.05
 # P_11_max = P_12_max = P_21_max = P_22_max = 0.05
-# calc_sum_rate()
+calc_sum_rate(type)
 
 print("========== No IRS between Relay and Base Station ===========")
 gamma = 1
 mu = 1
 alpha = 1
 beta = 0
+type="No IRS between Relay and Base Station"
 # ### Rate Thresholds ###
 # # R_11_th = R_12_th = R_21_th = R_22_th = 2
 # # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 2
@@ -565,20 +615,22 @@ beta = 0
 
 # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 0.5
 # R_11_th = R_12_th = R_21_th = R_22_th = 0.5
-P_11_max = P_12_max = P_21_max = P_22_max = 0.5
-calc_sum_rate()
-
-# P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 0.25
-# R_11_th = R_12_th = R_21_th = R_22_th = 0.25
-P_11_max = P_12_max = P_21_max = P_22_max = 0.25
-calc_sum_rate()
-
-# P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 0.1
-# R_11_th = R_12_th = R_21_th = R_22_th = 0.1
-P_11_max = P_12_max = P_21_max = P_22_max = 0.1
-calc_sum_rate()
-
-# P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 0.05
-# R_11_th = R_12_th = R_21_th = R_22_th = 0.05
-P_11_max = P_12_max = P_21_max = P_22_max = 0.05
-calc_sum_rate()
+# P_11_max = P_12_max = P_21_max = P_22_max = 0.5
+calc_sum_rate(type)
+#
+# # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 0.25
+# # R_11_th = R_12_th = R_21_th = R_22_th = 0.25
+# P_11_max = P_12_max = P_21_max = P_22_max = 0.25
+# calc_sum_rate()
+#
+# # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 0.1
+# # R_11_th = R_12_th = R_21_th = R_22_th = 0.1
+# P_11_max = P_12_max = P_21_max = P_22_max = 0.1
+# calc_sum_rate()
+#
+# # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 0.05
+# # R_11_th = R_12_th = R_21_th = R_22_th = 0.05
+# P_11_max = P_12_max = P_21_max = P_22_max = 0.05
+# calc_sum_rate()
+plt.legend()
+plt.show()
