@@ -66,6 +66,9 @@ beta = 1
 
 channels=[]
 
+isFD = True
+isOMA = False
+
 def find_min(a, b):
   if(a > b):
     return b
@@ -289,9 +292,12 @@ def evaluate_objective(par):
               ((P_dash_21 + P_dash_22) * np.abs(H_2_1.item()) ** 2 +
                np.abs(h_1_1.item()) ** 2 * rho ** 2 * (P_dash_11 + P_dash_12)) + \
                P_22 * np.abs(H_22_1.item()) ** 2
-    else:
+    elif (not isOMA and not isFD):
+
         ## Interference from D21 and D22
         F_1 = (P_21 * np.abs(H_22_1.item()) ** 2) +  P_22 * np.abs(H_22_1.item()) ** 2
+    else:
+        F_1 =  np.abs(h_1_1.item()) ** 2 * rho ** 2 * (P_dash_11 + P_dash_12)
     # SINR at R1 to detect symbol of D11 considering D12 as interference assuming H11_1 > H12_1
     SINR_R1_D11 = (P_11 * np.abs(H_11_1.item()) ** 2) / (P_12 * np.abs(H_12_1.item()) ** 2 + F_1 + sigma_1 ** 2)
     # SINR at R1 to detect symbol of D12 considering D11 as interference assuming D11 has already been decoded
@@ -299,27 +305,38 @@ def evaluate_objective(par):
     # SINR at R2
     if (isFD):
         F_2 = P_11 * np.abs(H_11_2.item()) ** 2 + P_12 * np.abs(H_12_2.item()) ** 2 + (P_dash_11 + P_dash_12) * np.abs(
-            H_1_2.item()) ** 2 + np.abs(h_2_2.item()) ** 2 * rho ** 2 * (P_dash_21 + P_dash_12) + P_dash_22
-    else:
+            H_1_2.item()) ** 2 + np.abs(h_2_2.item()) ** 2 * rho ** 2 * (P_dash_21 + P_dash_22) + P_dash_22
+    elif (not isOMA and not isFD):
         ## Interference from D11 and D12
         F_2 = P_11 * np.abs(H_11_2.item()) ** 2 +  P_12 * np.abs(H_12_2.item()) ** 2
+    else:
+        F_2 = np.abs(h_2_2.item()) ** 2 * rho ** 2 * (P_dash_21 + P_dash_22)
     SINR_R2_D21 = P_21 * np.abs(H_21_2.item()) ** 2 / (P_22 * np.abs(H_22_2.item()) ** 2 + F_2 + sigma_2 ** 2)
     SINR_R2_D22 = P_22 * np.abs(H_22_2.item()) ** 2 / (F_2 + sigma_2 ** 2)
 
-
-    # SINR at Base Station B
-    SINR_B_D11 = P_dash_11 * np.abs(H_1_B.item()) ** 2 / (
-            P_dash_12 * np.abs(H_1_B.item()) ** 2 + (P_dash_21 + P_dash_22) * np.abs(
-        H_2_B.item()) ** 2 + sigma_b ** 2)
-    SINR_B_D12 = P_dash_12 * np.abs(H_1_B.item()) ** 2 / (
-            (P_dash_21 + P_dash_22) * np.abs(H_2_B.item()) ** 2 + sigma_b ** 2)
-    #### Debug ###
-    SINR_B_D21 = P_dash_21 * np.abs(H_2_B.item()) ** 2 / ((P_dash_22) * np.abs(H_2_B.item()) ** 2 + sigma_b ** 2)
-    SINR_B_D22 = P_dash_22 * np.abs(H_2_B.item()) ** 2 / sigma_b ** 2
+    if(not isOMA):
+        # SINR at Base Station B
+        SINR_B_D11 = P_dash_11 * np.abs(H_1_B.item()) ** 2 / (
+                P_dash_12 * np.abs(H_1_B.item()) ** 2 + (P_dash_21 + P_dash_22) * np.abs(
+            H_2_B.item()) ** 2 + sigma_b ** 2)
+        SINR_B_D12 = P_dash_12 * np.abs(H_1_B.item()) ** 2 / (
+                (P_dash_21 + P_dash_22) * np.abs(H_2_B.item()) ** 2 + sigma_b ** 2)
+        #### Debug ###
+        SINR_B_D21 = P_dash_21 * np.abs(H_2_B.item()) ** 2 / ((P_dash_22) * np.abs(H_2_B.item()) ** 2 + sigma_b ** 2)
+        SINR_B_D22 = P_dash_22 * np.abs(H_2_B.item()) ** 2 / sigma_b ** 2
+    else:
+        # SINR at Base Station B
+        SINR_B_D11 = P_dash_11 * np.abs(H_1_B.item()) ** 2 / ( sigma_b ** 2)
+        SINR_B_D12 = P_dash_12 * np.abs(H_1_B.item()) ** 2 / ( sigma_b ** 2)
+        #### Debug ###
+        SINR_B_D21 = P_dash_21 * np.abs(H_2_B.item()) ** 2 / (sigma_b ** 2)
+        SINR_B_D22 = P_dash_22 * np.abs(H_2_B.item()) ** 2 / sigma_b ** 2
     ### Get SINR ###
     fac = 1
-    if(not isFD):
+    if(not isFD and not isOMA):
         fac = 1/2
+    elif(isOMA):
+        fac = 1/4
 
     ### Rate of D11 ###
     rate_D11 = fac*math.log2(1 + find_min(SINR_R1_D11, SINR_B_D11))
@@ -341,6 +358,7 @@ def evaluate_conditions(H_11_1, H_12_1, H_1_B, H_21_2, H_22_2, H_2_B, P_11, P_12
     condition_3 = (rate_D21 >= R_21_th)
     condition_4 = (rate_D22 >= R_22_th)
     ### Test absolute value of channels ###
+
     condition_5 = np.abs(H_1_B).item() > np.abs(H_2_B).item()
     condition_6 = np.abs(H_11_1).item() > np.abs(H_12_1).item()
     condition_7 = np.abs(H_21_2).item() > np.abs(H_22_2).item()
@@ -363,10 +381,10 @@ def evaluate_conditions(H_11_1, H_12_1, H_1_B, H_21_2, H_22_2, H_2_B, P_11, P_12
     if not condition_5:
         penalty = penalty + 0 if np.abs(H_1_B).item() - np.abs(H_2_B).item() >= 0 else abs(
             np.abs(H_1_B).item() - np.abs(H_2_B).item())
-    if not condition_6:
+    if not condition_6 and not isOMA:
         penalty = penalty + 0 if np.abs(H_11_1).item() - np.abs(H_12_1).item() >= 0 else abs(
             np.abs(H_11_1).item() - np.abs(H_12_1).item())
-    if not condition_7:
+    if not condition_7 and not isOMA:
         penalty = penalty + 0 if np.abs(H_21_2).item() - np.abs(H_22_2).item() >= 0 else abs(
             np.abs(H_21_2).item() - np.abs(H_22_2).item())
     if not condition_8:
@@ -478,7 +496,7 @@ def penalty_pso_function(particles, pbest, velocities, r1, r2):
                 particles[i][j] = new_position
                 velocities[i][j] = new_velocity
                 if(death_penalty):
-                    H_11_1, H_12_1, H_1_B, H_21_2, H_22_2, H_2_B, P_11, P_12, P_21, P_22, P_dash_11, P_dash_12, P_dash_21, P_dash_22, rate_D11, rate_D12, rate_D21, rate_D22 =   evaluate_objective(particles[i])
+                    H_11_1, H_12_1, H_1_B, H_21_2, H_22_2, H_2_B, P_11, P_12, P_21, P_22, P_dash_11, P_dash_12, P_dash_21, P_dash_22, rate_D11, rate_D12, rate_D21, rate_D22 = objective
                     if (evaluate_conditions(H_11_1, H_12_1, H_1_B, H_21_2, H_22_2, H_2_B, P_11, P_12, P_21, P_22, P_dash_11, P_dash_12, P_dash_21, P_dash_22, rate_D11, rate_D12, rate_D21, rate_D22) != 0.0):
                         particles[i][j] = old_position
                         velocities[i][j] = old_velocity
@@ -510,7 +528,7 @@ r1 = r1 [r1.files[0]].tolist()
 r2 = np.load('r2.npz')
 r2 = r2 [r2.files[0]].tolist()
 
-plot = False
+plot = True
 pso_convergence_list=[]
 x =  range(1,m_iterations+1)
 def calc_sum_rate(type):
@@ -533,15 +551,25 @@ gamma = 1
 mu = 1
 alpha = 1
 beta = 1
-type="IRS between Device-Relay and Relay-BS"
+
 
 # R_11_th = R_12_th = R_21_th = R_22_th = 15
-P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 1
+# P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 1
 # P_11_max = P_12_max = P_21_max = P_22_max = 1
-isFD = False
-calc_sum_rate(type)
+# isFD = False
+# calc_sum_rate(type)
 
 isFD = True
+isOMA = False
+death_penalty = False
+type="FD GF NOMA "
+calc_sum_rate(type)
+isFD = False
+type = 'HD GF NOMA '
+calc_sum_rate(type)
+isOMA = True
+isFD = False
+type = 'FD GF OMA '
 calc_sum_rate(type)
 
 # R_11_th = R_12_th = R_21_th = R_22_th = 10
@@ -597,7 +625,7 @@ calc_sum_rate(type)
 # # death_penalty = True
 # # calc_sum_rate("PSO with Death Penalty")
 #
-# death_penalty = False
+#
 # # calc_sum_rate("PSO with Dynamic Penalty")
 #
 # print("==========No IRS between Device and Relay============")
@@ -735,14 +763,14 @@ calc_sum_rate(type)
 # # R_11_th = R_12_th = R_21_th = R_22_th = 0.5
 # # P_11_max = P_12_max = P_21_max = P_22_max = 0.05
 # calc_sum_rate(type)
-# # # np.savez('pso_convergence_list.npz',type=pso_convergence_list)
-# # plt.xlabel("No. of Iterations")
-# # plt.ylabel("Sum Rate (Mbps)")
-# # plt.legend()
-# #
-# #
-# # current_timestamp = time.time()
-# # plt.savefig(f"PSO{current_timestamp}.svg")
-# # plt.show()
-# #
-# # plt.show()
+# # # # np.savez('pso_convergence_list.npz',type=pso_convergence_list)
+plt.xlabel("No. of Iterations")
+plt.ylabel("Sum Rate (Mbps)")
+plt.legend()
+
+
+current_timestamp = time.time()
+plt.savefig(f"PSO{current_timestamp}.svg")
+plt.show()
+
+plt.show()
