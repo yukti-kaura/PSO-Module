@@ -80,8 +80,8 @@ def penalty_pso_function(parameter_values, bounds, n_particles, m_iterations, in
     w = inertia  # inertia weight
     c1 = cognitive  # cognitive constant
     c2 = social  # social constant
-    w1 = .8
-    w2= .5
+    # w1 = .8
+    # w2 = .5
 
     para = flatten(parameter_values)
     len_para = len(para)
@@ -123,13 +123,14 @@ def penalty_pso_function(parameter_values, bounds, n_particles, m_iterations, in
         # Update velocities and particles
         for i in range(num_particles):
             for j in range(len_para):
-                w = (w1-w2)*((m_iterations - iter+1)/(m_iterations)) + w2
-                new_velocity = 0.73*(w * velocities[i][j] +
-                                    c1 * random.random() * (pbest[i][j] - particles[i][j]) +
-                                    c2 * random.random() * (gbest[j] - particles[i][j]))
-                new_velocity = 4 if new_velocity >=4 else new_velocity
+                # w = (w1 - w2) * ((m_iterations - iter + 1) / (m_iterations)) + w2
+                new_velocity =  0.73*(w * velocities[i][j] +
+                                    c1 * (pbest[i][j] - particles[i][j]) +
+                                    c2 *  (gbest[j] - particles[i][j]))
                 new_position = particles[i][j] + new_velocity
+
                 new_position = max(min(new_position, update_bounds[j][1]), update_bounds[j][0])
+
                 particles[i][j] = new_position
                 velocities[i][j] = new_velocity
 
@@ -140,7 +141,7 @@ def penalty_pso_function(parameter_values, bounds, n_particles, m_iterations, in
     return iteration_best_values
 
 M = 1  # No. of antennas on BS
-N = N1 = N2 = NB  = 16  # No. IRS elements
+N = N1 = N2 = NB  = 8  # No. IRS elements
 K = 1  # No.of transmit antennas at the relay device
 K_dash = 1 # No. of transmit antennas at the redcap (IoT) device
 q = 1 # No. of Quantization bits. 1,2,..., Q
@@ -281,6 +282,45 @@ h_I2_1 = generate_channel(N, 1, get_pathloss_direct(D_1_I2))
 h_1_1 =  generate_channel(1, 1, 1)
 h_2_2 =  generate_channel(1, 1, 1)
 
+
+def reinit_channel():
+    ### Calculate Channel ###
+    global h_I1_1, h_11_I1, h_12_I1, h_12_1, h_11_1, h_I2_2, h_21_I2, h_22_I2, h_21_2, h_22_2, h_IB_B, h_2_IB,h_1_IB, h_2_B, h_1_B, h_IB_1, h_IB_2, h_I1_2, h_I2_1, h_1_1, h_2_2
+    # Ques: Do all IRS have equal number of reflecting elements?
+    h_I1_1 = generate_channel(N, 1, get_pathloss_direct(D_I1_1))
+    h_11_I1 = generate_channel(1, N, get_pathloss_direct(D_11_I1))
+    h_12_I1 = generate_channel(1, N, get_pathloss_direct(D_12_I1))
+    h_12_1 = generate_channel(1, 1, get_pathloss_direct(D_12_1))
+    h_11_1 = generate_channel(1, 1, get_pathloss_direct(D_11_1))
+
+    h_I2_2 = generate_channel(N, 1, get_pathloss_direct(D_I2_2))
+    h_21_I2 = generate_channel(1, N, get_pathloss_direct(D_21_I2))
+    h_22_I2 = generate_channel(1, N, get_pathloss_direct(D_22_I2))
+    h_21_2 = generate_channel(1, 1, get_pathloss_direct(D_21_2))
+    h_22_2 = generate_channel(1, 1, get_pathloss_direct(D_22_2))
+
+    h_IB_B = generate_channel(N, 1, get_pathloss_direct(D_IB_B))
+    h_2_IB = generate_channel(1, N, get_pathloss_direct(D_2_IB))
+    h_1_IB = generate_channel(1, N, get_pathloss_direct(D_1_IB))
+    h_2_B = generate_channel(1, 1, get_pathloss_direct(D_2_B))
+    h_1_B = generate_channel(1, 1, get_pathloss_direct(D_1_B))
+
+    ### Interference link path loss
+
+    ### Relay 1 ###
+    h_IB_1 = generate_channel(N, 1, get_pathloss_direct(D_1_IB))  ### Channel is reciprocal ###
+    # ### Relay 2 ###
+    h_IB_2 = generate_channel(N, 1, get_pathloss_direct(D_2_IB))
+
+    ### Interference  from IRS 1 (I1) to Relay 2 (R2)
+    h_I1_2 = generate_channel(N, 1, get_pathloss_direct(D_2_I1))
+    ### Interference  from IRS 2 (I2) to Relay 1 (R1)
+    h_I2_1 = generate_channel(N, 1, get_pathloss_direct(D_1_I2))
+
+    ## Duplexing interference ###
+    h_1_1 = generate_channel(1, 1, 1)
+    h_2_2 = generate_channel(1, 1, 1)
+
 penalty_factor = 0.9
 
 
@@ -397,37 +437,37 @@ def objective_function(para, iter):
    condition_15 = P_dash_12 <= P_dash_12_max
 
    if not condition_1:
-       penalty = penalty + 0 if rate_D11 - R_11_th >=0 else 1
+       penalty = penalty + 0 if rate_D11 - R_11_th >=0 else abs(rate_D11 - R_11_th)
    elif not condition_2:
-       penalty = penalty + 0 if rate_D12 - R_12_th >= 0 else 1
+       penalty = penalty + 0 if rate_D12 - R_12_th >= 0 else abs(rate_D12 - R_12_th)
    elif not condition_3:
-       penalty = penalty + 0 if  rate_D21 - R_21_th >= 0 else 1
+       penalty = penalty + 0 if  rate_D21 - R_21_th >= 0 else abs(rate_D21 - R_21_th)
    elif not condition_4:
-       penalty = penalty + 0 if  rate_D22 - R_22_th >= 0 else 1
+       penalty = penalty + 0 if  rate_D22 - R_22_th >= 0 else abs(rate_D22 - R_22_th)
    elif not condition_5:
-       penalty = penalty + 0 if  np.abs(H_1_B).item() - np.abs(H_2_B).item() >= 0 else 1
+       penalty = penalty + 0 if  np.abs(H_1_B).item() - np.abs(H_2_B).item() >= 0 else abs(np.abs(H_1_B).item() - np.abs(H_2_B).item())
    elif not condition_6:
-       penalty = penalty + 0 if  np.abs(H_11_1).item() - np.abs(H_12_1).item() >= 0 else 1
+       penalty = penalty + 0 if  np.abs(H_11_1).item() - np.abs(H_12_1).item() >= 0 else abs(np.abs(H_11_1).item() - np.abs(H_12_1).item())
    elif not condition_7:
-       penalty = penalty + 0 if  np.abs(H_21_2).item() - np.abs(H_22_2).item() >= 0 else 1
+       penalty = penalty + 0 if  np.abs(H_21_2).item() - np.abs(H_22_2).item() >= 0 else abs(np.abs(H_21_2).item() - np.abs(H_22_2).item())
    elif not condition_8:
-       penalty = penalty + 0 if  P_11 - P_11_max <= 0 else 1
+       penalty = penalty + 0 if  P_11 - P_11_max <= 0 else abs(P_11 - P_11_max)
    elif not condition_9:
-       penalty = penalty + 0 if  P_12 - P_12_max <= 0 else 1
+       penalty = penalty + 0 if  P_12 - P_12_max <= 0 else abs(P_12 - P_12_max)
    elif not condition_10:
-       penalty = penalty + 0 if  P_21 - P_21_max <= 0 else 1
+       penalty = penalty + 0 if  P_21 - P_21_max <= 0 else abs(P_21 - P_21_max)
    elif not condition_11:
-       penalty = penalty + 0 if  P_22 - P_22_max <= 0 else 1
+       penalty = penalty + 0 if  P_22 - P_22_max <= 0 else abs(P_22 - P_22_max)
    elif not condition_12:
-       penalty = penalty + 0 if  P_dash_11 - P_dash_11_max <= 0 else 1
+       penalty = penalty + 0 if  P_dash_11 - P_dash_11_max <= 0 else abs(P_dash_11 - P_dash_11_max)
    elif not condition_13:
-       penalty = penalty + 0 if  P_dash_12_max - P_dash_12_max <= 0 else 1
+       penalty = penalty + 0 if  P_dash_12_max - P_dash_12_max <= 0 else abs(P_dash_12_max - P_dash_12_max)
    elif not condition_14:
-       penalty = penalty + 0 if  P_dash_21_max - P_dash_21_max <= 0 else 1
+       penalty = penalty + 0 if  P_dash_21_max - P_dash_21_max <= 0 else abs(P_dash_21_max - P_dash_21_max)
    elif not condition_15:
-       penalty = penalty + 0 if  P_dash_22_max - P_dash_22_max <= 0 else 1
+       penalty = penalty + 0 if  P_dash_22_max - P_dash_22_max <= 0 else abs(P_dash_22_max - P_dash_22_max)
    ## Recalculate rates based on these values.
-   return rate_D11 + rate_D11 + rate_D21 +  rate_D22  - penalty_factor*penalty
+   return rate_D11 + rate_D11 + rate_D21 +  rate_D22  - penalty
 
 
 #### Loop through to average ####
@@ -435,19 +475,29 @@ def avg_pso_vals(n_particles, inertia, cognitive, social):
     global gamma, m_iterations
     pso_mean_vals = []
     pso_max_vals = []
+    pso_convergence = []
     best_val_list = []
+    # pso_convergence =np.array([], dtype=float)
    #### Invoke PSO in loop
     for i in range(total_runs):
-        best_val = penalty_pso_function(par, bounds, n_particles, m_iterations, inertia, cognitive, social, i+1)
+        best_val = penalty_pso_function(par, bounds, n_particles, m_iterations, inertia, cognitive, social, i)
         best_val_list.append(best_val)
+        # if (type(pso_convergence) is list and pso_convergence) or type(pso_convergence) is not list:
+        #     pso_convergence = np.mean([best_val,pso_convergence], axis=0, dtype=np.float64)
+        # else:
+        #     pso_convergence = best_val
         max_val = np.max(best_val)
+        # print(max_val)
+
         pso_max_vals.append(max_val)
+    # print(best_val_list)
     pso_convergence = np.mean(best_val_list, axis=0, dtype=np.float64)
+    # print("Max of Mean",np.max(pso_convergence))
     return pso_max_vals, pso_mean_vals, pso_convergence
 
 
-total_runs = 10
-m_iterations = 1000
+total_runs = 100
+m_iterations = 200
 
 ### Indicator for Direct Link
 gamma = 1
@@ -463,8 +513,8 @@ beta = 1
 
 n_particles = 100
 inertia= 0.7
-cognitive = 2
-social = 2
+cognitive = 1.4
+social = 1.4
 ### Initialize the particles
 init(par, bounds, n_particles)
 # velocities_init = np.load('velocities_init.npz')
@@ -474,51 +524,178 @@ init(par, bounds, n_particles)
 # pbest_init = np.load('pbest_init.npz')
 # pbest_init = pbest_init [pbest_init.files[0]]
 # reinit()
-
-
-### No IRS ###
-beta = 1
-alpha = 1
-gamma = 1
-mu = 0
-pso_max_vals, pso_mean_vals, pso_convergence = avg_pso_vals(n_particles, inertia, cognitive, social)
-# print(len(pso_max_vals), np.max(pso_max_vals), f"n_particles={n_particles}, inertia={inertia}, cognitive={cognitive}, social={social}")
-print( 'mean max val' , np.mean(pso_max_vals))
-plt.plot(np.arange(len(pso_convergence)), pso_convergence,  label="No IRS", linestyle = 'dashed')
-
-### No IRS Between Relay and BS ###
+### Full IRS ###
 beta = 0
 alpha = 1
 gamma = 1
 mu = 1
+
+print("##### IRS at Device and Relay  #####")
+
+# N=4
+# reinit_channel()
 pso_max_vals, pso_mean_vals, pso_convergence = avg_pso_vals(n_particles, inertia, cognitive, social)
 # print(len(pso_max_vals), np.max(pso_max_vals), f"n_particles={n_particles}, inertia={inertia}, cognitive={cognitive}, social={social}")
 print( 'mean max val' , np.mean(pso_max_vals))
-plt.plot(np.arange(len(pso_convergence)), pso_convergence,  label="No IRS between Relay and BS", linestyle = 'dashed')
+# plt.plot(np.arange(len(pso_convergence)), pso_convergence,   label=f"N={N}", linestyle = 'dashed', marker='o',markevery=10)
 
 
-### No IRS Between Device and Relay ###
-beta = 1
-alpha = 0
-gamma = 1
-mu = 1
-pso_max_vals, pso_mean_vals, pso_convergence = avg_pso_vals(n_particles, inertia, cognitive, social)
-# print(len(pso_max_vals), np.max(pso_max_vals), f"n_particles={n_particles}, inertia={inertia}, cognitive={cognitive}, social={social}")
-print( 'mean max val' , np.mean(pso_max_vals))
-plt.plot(np.arange(len(pso_convergence)), pso_convergence,  label="No IRS between Device and Relay", linestyle = 'dashed')
-
-### Full IRS ###
-beta = 1
-alpha = 1
-gamma = 1
-mu = 1
-
-
-### Full IRS ###
-pso_max_vals, pso_mean_vals, pso_convergence = avg_pso_vals(n_particles, inertia, cognitive, social)
-print( 'mean max val' , np.mean(pso_max_vals, dtype=np.float64), len(pso_max_vals))
-# plt.plot(np.arange(len(pso_convergence)), pso_convergence, label=f'no. of particles = {n_particles}, inertia (w) = {inertia}, cognitive (c1) = {cognitive}, social (c2) = {social}', linestyle = 'dashed')
-plt.plot(np.arange(len(pso_convergence)), pso_convergence, label="Full IRS", linestyle = 'dashed')
+# N=8
+# reinit_channel()
+# pso_max_vals, pso_mean_vals, pso_convergence = avg_pso_vals(n_particles, inertia, cognitive, social)
+# # print(len(pso_max_vals), np.max(pso_max_vals), f"n_particles={n_particles}, inertia={inertia}, cognitive={cognitive}, social={social}")
+# print( 'mean max val' , np.mean(pso_max_vals))
+# # plt.plot(np.arange(len(pso_convergence)), pso_convergence,   label=f"N={N}", linestyle = 'dashed',marker='d',markevery=10)
+#
+# N=16
+# reinit_channel()
+# pso_max_vals, pso_mean_vals, pso_convergence = avg_pso_vals(n_particles, inertia, cognitive, social)
+# # print(len(pso_max_vals), np.max(pso_max_vals), f"n_particles={n_particles}, inertia={inertia}, cognitive={cognitive}, social={social}")
+# print( 'mean max val' , np.mean(pso_max_vals))
+# # plt.plot(np.arange(len(pso_convergence)), pso_convergence,  label=f"N={N}", linestyle = 'dashed',marker='+',markevery=10)
+#
+# N=32
+# reinit_channel()
+# pso_max_vals, pso_mean_vals, pso_convergence = avg_pso_vals(n_particles, inertia, cognitive, social)
+# # print(len(pso_max_vals), np.max(pso_max_vals), f"n_particles={n_particles}, inertia={inertia}, cognitive={cognitive}, social={social}")
+# print( 'mean max val' , np.mean(pso_max_vals))
+# # plt.plot(np.arange(len(pso_convergence)), pso_convergence,   label=f"N={N}", linestyle = 'dashed',marker='^',markevery=10)
+#
+# N=64
+# reinit_channel()
+# pso_max_vals, pso_mean_vals, pso_convergence = avg_pso_vals(n_particles, inertia, cognitive, social)
+# # print(len(pso_max_vals), np.max(pso_max_vals), f"n_particles={n_particles}, inertia={inertia}, cognitive={cognitive}, social={social}")
+# print( 'mean max val' , np.mean(pso_max_vals))
+# # plt.plot(np.arange(len(pso_convergence)), pso_convergence,  label=f"N={N}", linestyle = 'dashed',marker='^',markevery=10)
+#
+# beta = 1
+# alpha = 1
+# gamma = 1
+# mu = 0
+#
+# print("##### No IRS  #####")
+#
+# N=4
+# reinit_channel()
+# pso_max_vals, pso_mean_vals, pso_convergence = avg_pso_vals(n_particles, inertia, cognitive, social)
+# # print(len(pso_max_vals), np.max(pso_max_vals), f"n_particles={n_particles}, inertia={inertia}, cognitive={cognitive}, social={social}")
+# print( 'mean max val' , np.mean(pso_max_vals))
+# # plt.plot(np.arange(len(pso_convergence)), pso_convergence,   label=f"N={N}", linestyle = 'dashed', marker='o',markevery=10)
+#
+#
+# N=8
+# reinit_channel()
+# pso_max_vals, pso_mean_vals, pso_convergence = avg_pso_vals(n_particles, inertia, cognitive, social)
+# # print(len(pso_max_vals), np.max(pso_max_vals), f"n_particles={n_particles}, inertia={inertia}, cognitive={cognitive}, social={social}")
+# print( 'mean max val' , np.mean(pso_max_vals))
+# # plt.plot(np.arange(len(pso_convergence)), pso_convergence,   label=f"N={N}", linestyle = 'dashed',marker='d',markevery=10)
+#
+# N=16
+# reinit_channel()
+# pso_max_vals, pso_mean_vals, pso_convergence = avg_pso_vals(n_particles, inertia, cognitive, social)
+# # print(len(pso_max_vals), np.max(pso_max_vals), f"n_particles={n_particles}, inertia={inertia}, cognitive={cognitive}, social={social}")
+# print( 'mean max val' , np.mean(pso_max_vals))
+# # plt.plot(np.arange(len(pso_convergence)), pso_convergence,  label=f"N={N}", linestyle = 'dashed',marker='+',markevery=10)
+#
+# N=32
+# reinit_channel()
+# pso_max_vals, pso_mean_vals, pso_convergence = avg_pso_vals(n_particles, inertia, cognitive, social)
+# # print(len(pso_max_vals), np.max(pso_max_vals), f"n_particles={n_particles}, inertia={inertia}, cognitive={cognitive}, social={social}")
+# print( 'mean max val' , np.mean(pso_max_vals))
+# # plt.plot(np.arange(len(pso_convergence)), pso_convergence,   label=f"N={N}", linestyle = 'dashed',marker='^',markevery=10)
+#
+# N=64
+# reinit_channel()
+# pso_max_vals, pso_mean_vals, pso_convergence = avg_pso_vals(n_particles, inertia, cognitive, social)
+# # print(len(pso_max_vals), np.max(pso_max_vals), f"n_particles={n_particles}, inertia={inertia}, cognitive={cognitive}, social={social}")
+# print( 'mean max val' , np.mean(pso_max_vals))
+#
+#
+# beta = 1
+# alpha = 0
+# gamma = 1
+# mu = 1
+#
+# print("##### No IRS between Device and Relay  #####")
+#
+# N=4
+# reinit_channel()
+# pso_max_vals, pso_mean_vals, pso_convergence = avg_pso_vals(n_particles, inertia, cognitive, social)
+# # print(len(pso_max_vals), np.max(pso_max_vals), f"n_particles={n_particles}, inertia={inertia}, cognitive={cognitive}, social={social}")
+# print( 'mean max val' , np.mean(pso_max_vals))
+# # plt.plot(np.arange(len(pso_convergence)), pso_convergence,   label=f"N={N}", linestyle = 'dashed', marker='o',markevery=10)
+#
+#
+# N=8
+# reinit_channel()
+# pso_max_vals, pso_mean_vals, pso_convergence = avg_pso_vals(n_particles, inertia, cognitive, social)
+# # print(len(pso_max_vals), np.max(pso_max_vals), f"n_particles={n_particles}, inertia={inertia}, cognitive={cognitive}, social={social}")
+# print( 'mean max val' , np.mean(pso_max_vals))
+# # plt.plot(np.arange(len(pso_convergence)), pso_convergence,   label=f"N={N}", linestyle = 'dashed',marker='d',markevery=10)
+#
+# N=16
+# reinit_channel()
+# pso_max_vals, pso_mean_vals, pso_convergence = avg_pso_vals(n_particles, inertia, cognitive, social)
+# # print(len(pso_max_vals), np.max(pso_max_vals), f"n_particles={n_particles}, inertia={inertia}, cognitive={cognitive}, social={social}")
+# print( 'mean max val' , np.mean(pso_max_vals))
+# # plt.plot(np.arange(len(pso_convergence)), pso_convergence,  label=f"N={N}", linestyle = 'dashed',marker='+',markevery=10)
+#
+# N=32
+# reinit_channel()
+# pso_max_vals, pso_mean_vals, pso_convergence = avg_pso_vals(n_particles, inertia, cognitive, social)
+# # print(len(pso_max_vals), np.max(pso_max_vals), f"n_particles={n_particles}, inertia={inertia}, cognitive={cognitive}, social={social}")
+# print( 'mean max val' , np.mean(pso_max_vals))
+# # plt.plot(np.arange(len(pso_convergence)), pso_convergence,   label=f"N={N}", linestyle = 'dashed',marker='^',markevery=10)
+#
+# N=64
+# reinit_channel()
+# pso_max_vals, pso_mean_vals, pso_convergence = avg_pso_vals(n_particles, inertia, cognitive, social)
+# # print(len(pso_max_vals), np.max(pso_max_vals), f"n_particles={n_particles}, inertia={inertia}, cognitive={cognitive}, social={social}")
+# print( 'mean max val' , np.mean(pso_max_vals))
+# # plt.plot(np.arange(len(pso_convergence)), pso_convergence,  label=f"N={N}", linestyle = 'dashed',marker='^',markevery=10)
+# # plt.plot(np.arange(len(pso_convergence)), pso_convergence,  label=f"N={N}", linestyle = 'dashed',marker='^',markevery=10)
+#
+# beta = 0
+# alpha = 1
+# gamma = 1
+# mu = 1
+#
+# print("##### No IRS between Relay and BS  #####")
+#
+# N=4
+# reinit_channel()
+# pso_max_vals, pso_mean_vals, pso_convergence = avg_pso_vals(n_particles, inertia, cognitive, social)
+# # print(len(pso_max_vals), np.max(pso_max_vals), f"n_particles={n_particles}, inertia={inertia}, cognitive={cognitive}, social={social}")
+# print( 'mean max val' , np.mean(pso_max_vals))
+# # plt.plot(np.arange(len(pso_convergence)), pso_convergence,   label=f"N={N}", linestyle = 'dashed', marker='o',markevery=10)
+#
+#
+# N=8
+# reinit_channel()
+# pso_max_vals, pso_mean_vals, pso_convergence = avg_pso_vals(n_particles, inertia, cognitive, social)
+# # print(len(pso_max_vals), np.max(pso_max_vals), f"n_particles={n_particles}, inertia={inertia}, cognitive={cognitive}, social={social}")
+# print( 'mean max val' , np.mean(pso_max_vals))
+# # plt.plot(np.arange(len(pso_convergence)), pso_convergence,   label=f"N={N}", linestyle = 'dashed',marker='d',markevery=10)
+#
+# N=16
+# reinit_channel()
+# pso_max_vals, pso_mean_vals, pso_convergence = avg_pso_vals(n_particles, inertia, cognitive, social)
+# # print(len(pso_max_vals), np.max(pso_max_vals), f"n_particles={n_particles}, inertia={inertia}, cognitive={cognitive}, social={social}")
+# print( 'mean max val' , np.mean(pso_max_vals))
+# # plt.plot(np.arange(len(pso_convergence)), pso_convergence,  label=f"N={N}", linestyle = 'dashed',marker='+',markevery=10)
+#
+# N=32
+# reinit_channel()
+# pso_max_vals, pso_mean_vals, pso_convergence = avg_pso_vals(n_particles, inertia, cognitive, social)
+# # print(len(pso_max_vals), np.max(pso_max_vals), f"n_particles={n_particles}, inertia={inertia}, cognitive={cognitive}, social={social}")
+# print( 'mean max val' , np.mean(pso_max_vals))
+# # plt.plot(np.arange(len(pso_convergence)), pso_convergence,   label=f"N={N}", linestyle = 'dashed',marker='^',markevery=10)
+#
+# N=64
+# reinit_channel()
+# pso_max_vals, pso_mean_vals, pso_convergence = avg_pso_vals(n_particles, inertia, cognitive, social)
+# # print(len(pso_max_vals), np.max(pso_max_vals), f"n_particles={n_particles}, inertia={inertia}, cognitive={cognitive}, social={social}")
+# print( 'mean max val' , np.mean(pso_max_vals))
 
 # n_particles = 50
 # inertia= 0.7
@@ -569,14 +746,13 @@ plt.plot(np.arange(len(pso_convergence)), pso_convergence, label="Full IRS", lin
 
 
 
-plt.title(f'Optimization, penalty factor: {penalty_factor}')
-plt.xlabel('Iteration')
-plt.ylabel('Sum Rate')
-plt.legend()
-plt.grid(True)
-plt.xlim(0,m_iterations)
-plt.tight_layout()
-import time
-current_timestamp = time.time()
-plt.savefig(f"PSO{current_timestamp}.svg")
-plt.show()
+# plt.title(f'Optimization, penalty factor: {penalty_factor}')
+# plt.xlabel('Iteration')
+# plt.ylabel('Sum Rate')
+# plt.legend()
+# plt.grid(True)
+# plt.tight_layout()
+# import time
+# current_timestamp = time.time()
+# plt.savefig(f"PSO{current_timestamp}.svg")
+# plt.show()

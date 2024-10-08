@@ -59,10 +59,10 @@ def init(parameter_values, bounds, n_particles):
     len_para = len(para)
     for _ in range(n_particles):
         particle = [random.uniform(bounds[i][0], bounds[i][1]) for i in range(len_para)]
-        temp_con = unflatten(particle, par)
-        while (conditions(temp_con) == False):
-            particle = [random.uniform(bounds[i][0], bounds[i][1]) for i in range(len_para)]
-            temp_con = unflatten(particle, par)
+        # temp_con = unflatten(particle, par)
+        # while (conditions(temp_con) == False):
+        #     particle = [random.uniform(bounds[i][0], bounds[i][1]) for i in range(len_para)]
+        #     temp_con = unflatten(particle, par)
         particles_init.append(particle)
         velocities_init.append([0] * (len_para))
         pbest_init.append(particle[:])
@@ -155,8 +155,8 @@ K = 1  # No.of transmit antennas at the relay device
 K_dash = 1 # No. of transmit antennas at the redcap (IoT) device
 q = 1 # No. of Quantization bits. 1,2,..., Q
 m = 1 # m=1,2,..., 2^n-1
-w1=0.9
-w2=0.4
+w1 = 0.9
+w2 = 0.4
 
 ####################### Reflection co-efficient matrix for IRS_1 (I1) #########################
 zeta_I1 = [random.uniform(0, 1) for _ in range(N)]
@@ -198,8 +198,24 @@ D_I2_2 = 4
 D_IB_B = 10
 D_2_I1 = 8
 D_1_I2 = 8
+D_12_1 = 34
+D_11_1 = 24
+D_22_2 = 24
+D_21_2 = 19
+D_2_B = 19
+D_1_B = 15
 
+### Indicator for Direct Link
+gamma = 1
 
+### Indicator for no-IRS
+mu = 1
+
+### Indicator for IRS in Relay to Device
+alpha = 1
+
+## Indicator for IRS in Relay to BS
+beta = 1
 
 ### Noise  ###
 # -120db : TODO Assign linear value
@@ -253,14 +269,20 @@ def get_pathloss_direct(d):
 h_I1_1 = generate_channel(N, 1, get_pathloss_direct(D_I1_1))
 h_11_I1 = generate_channel(1, N, get_pathloss_direct(D_11_I1))
 h_12_I1 = generate_channel(1, N, get_pathloss_direct(D_12_I1))
+h_12_1 = generate_channel(1, 1, get_pathloss_direct(D_12_1))
+h_11_1 = generate_channel(1, 1, get_pathloss_direct(D_11_1))
 
 h_I2_2 = generate_channel(N, 1, get_pathloss_direct(D_I2_2))
 h_21_I2 = generate_channel(1, N, get_pathloss_direct(D_21_I2))
 h_22_I2 = generate_channel(1, N, get_pathloss_direct(D_22_I2))
+h_21_2 = generate_channel(1, 1, get_pathloss_direct(D_21_2))
+h_22_2 = generate_channel(1, 1, get_pathloss_direct(D_22_2))
 
 h_IB_B = generate_channel(N, 1, get_pathloss_direct(D_IB_B))
 h_2_IB = generate_channel(1, N, get_pathloss_direct(D_2_IB))
 h_1_IB = generate_channel(1, N, get_pathloss_direct(D_1_IB))
+h_2_B = generate_channel(1, 1, get_pathloss_direct(D_2_B))
+h_1_B = generate_channel(1, 1, get_pathloss_direct(D_1_B))
 
 
 ### Interference link path loss
@@ -324,12 +346,12 @@ def reinit():
     np.fill_diagonal(phi_IB, phi_IB_value)
 
     ### Calculate Channel Gain ###
-    H_1_B = np.dot(np.dot(np.conjugate(h_IB_B).transpose(), phi_IB), h_1_IB.transpose())
-    H_2_B = np.dot(np.dot(np.conjugate(h_IB_B).transpose(), phi_IB), h_2_IB.transpose())
-    H_11_1 = np.dot(np.dot(np.conjugate(h_I1_1).transpose(), phi_I1), h_11_I1.transpose())
-    H_12_1 = np.dot(np.dot(np.conjugate(h_I1_1).transpose(), phi_I1), h_12_I1.transpose())
-    H_21_2 = np.dot(np.dot(np.conjugate(h_I2_2).transpose(), phi_I2), h_21_I2.transpose())
-    H_22_2 = np.dot(np.dot(np.conjugate(h_I2_2).transpose(), phi_I2), h_22_I2.transpose())
+    H_1_B = gamma * h_1_B + beta * mu * np.dot(np.dot(np.conjugate(h_IB_B).transpose(), phi_IB), h_1_IB.transpose())
+    H_2_B = gamma * h_2_B + beta * mu * np.dot(np.dot(np.conjugate(h_IB_B).transpose(), phi_IB), h_2_IB.transpose())
+    H_11_1 = gamma * h_11_1 + alpha * mu * np.dot(np.dot(np.conjugate(h_I1_1).transpose(), phi_I1), h_11_I1.transpose())
+    H_12_1 = gamma * h_12_1 + alpha * mu * np.dot(np.dot(np.conjugate(h_I1_1).transpose(), phi_I1), h_12_I1.transpose())
+    H_21_2 = gamma * h_21_2 + alpha * mu * np.dot(np.dot(np.conjugate(h_I2_2).transpose(), phi_I2), h_21_I2.transpose())
+    H_22_2 = gamma * h_22_2 + alpha * mu * np.dot(np.dot(np.conjugate(h_I2_2).transpose(), phi_I2), h_22_I2.transpose())
 
     ### Interference Link Channel Gain ###
     H_2_1 = np.dot(np.dot(np.conjugate(h_IB_1).transpose(), phi_IB), h_2_IB.transpose())
@@ -493,17 +515,48 @@ inertia= 0.7
 cognitive = 1.4
 social = 1.4
 #### Initialize PSO parameters ####
-velocities_init = np.load('velocities_init.npz')
-velocities_init = velocities_init[velocities_init.files[0]].tolist()
-particles_init = np.load('particles_init.npz')
-particles_init  = particles_init [particles_init.files[0]].tolist()
-pbest_init = np.load('pbest_init.npz')
-pbest_init = pbest_init [pbest_init.files[0]].tolist()
+# velocities_init = np.load('velocities_init.npz')
+# velocities_init = velocities_init[velocities_init.files[0]].tolist()
+# particles_init = np.load('particles_init.npz')
+# particles_init  = particles_init [particles_init.files[0]].tolist()
+# pbest_init = np.load('pbest_init.npz')
+# pbest_init = pbest_init [pbest_init.files[0]].tolist()
 
-# init(par, bounds, n_particles)
+
+init(par, bounds, n_particles)
+print('### Full IRS ###')
 pso_max_vals, pso_mean_vals, pso_convergence = avg_pso_vals(n_particles, inertia, cognitive, social)
 print( 'mean max val' , np.mean(pso_max_vals))
 
+print('### No IRS between Device and Relay ###')
+beta = 1
+alpha = 0
+gamma = 1
+mu = 1
+
+pso_max_vals, pso_mean_vals, pso_convergence = avg_pso_vals(n_particles, inertia, cognitive, social)
+print( 'mean max val' , np.mean(pso_max_vals))
+
+
+print('### No IRS Between Relay and BS ###')
+beta = 0
+alpha = 1
+gamma = 1
+mu = 1
+
+pso_max_vals, pso_mean_vals, pso_convergence = avg_pso_vals(n_particles, inertia, cognitive, social)
+print( 'mean max val' , np.mean(pso_max_vals))
+
+
+
+print('### No IRS ###')
+beta = 1
+alpha = 1
+gamma = 1
+mu = 0
+
+pso_max_vals, pso_mean_vals, pso_convergence = avg_pso_vals(n_particles, inertia, cognitive, social)
+print( 'mean max val' , np.mean(pso_max_vals))
 
 # n_particles = 100
 # inertia= 0.7
@@ -543,16 +596,6 @@ print( 'mean max val' , np.mean(pso_max_vals))
 # social = .3
 #
 # avg_pso_vals(n_particles, inertia, cognitive, social)
-
-
-
-
-
-
-
-
-
-
 
 # plt.title(f'Optimization, penalty factor: {penalty_factor}')
 # plt.xlabel('Iteration')

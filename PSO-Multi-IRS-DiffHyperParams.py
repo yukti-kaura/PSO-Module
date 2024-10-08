@@ -4,6 +4,8 @@ import numpy as np
 import random
 import math
 import matplotlib.pyplot as plt
+import copy
+
 
 def flatten(lst):
     flat_list = []
@@ -26,108 +28,8 @@ def unflatten(flat_list, structure):
         return result
     return helper(structure)
 
-def flatten(lst):
-    flat_list = []
-    for item in lst:
-        if isinstance(item, list):
-            flat_list.extend(flatten(item))
-        else:
-            flat_list.append(item)
-    return flat_list
-
-def unflatten(flat_list, structure):
-    flat_iter = iter(flat_list)
-    def helper(struct):
-        result = []
-        for elem in struct:
-            if isinstance(elem, list):
-                result.append(helper(elem))
-            else:
-                result.append(next(flat_iter))
-        return result
-    return helper(structure)
-
-def pso_function(parameter, bounds, n_particles, m_iterations, inertia, cognitive, social):
-
-    print("PSO Algorithm Started")
-
-    num_particles = n_particles
-    max_iterations = m_iterations
-    w = inertia  # inertia weight
-    c1 = cognitive  # cognitive constant
-    c2 = social  # social constant
-
-    para = flatten(parameter)
-    len_para = len(para)
-    update_bounds = flatten(bounds)
-
-
-    particles = []
-    velocities = []
-    pbest = []
-    gbest = None
-    gbest_value = -float('inf')
-    iteration_best_values = []
-
-    for _ in range(num_particles):
-        particle = [random.uniform(bounds[i][0], bounds[i][1]) for i in range(len_para)]
-        temp_con = unflatten(particle, parameter)
-        while (conditions(temp_con) == False):
-            particle = [random.uniform(bounds[i][0], bounds[i][1]) for i in range(len_para)]
-            temp_con = unflatten(particle, parameter)
-        particles.append(particle)
-        velocities.append([0] * (len_para))
-        pbest.append(particle[:])
-
-    # PSO loop
-    for iter in range(max_iterations):
-        iteration_best_value = -float('inf')
-        for i in range(num_particles):
-            current_position = particles[i]
-            temp = unflatten(current_position, parameter)
-            fitness = objective_function(temp)
-
-            # Update personal best
-            temp = unflatten(pbest[i], parameter)
-            if fitness > objective_function(temp):
-                pbest[i] = current_position[:]
-
-            # Update global best
-            if fitness > gbest_value:
-                gbest = current_position[:]
-                gbest_value = fitness
-
-            # Update iteration best value
-            if fitness > iteration_best_value:
-                iteration_best_value = fitness
-
-        # Record the best value found in this iteration
-        iteration_best_values.append(iteration_best_value)
-
-        # Update velocities and particles
-        for i in range(num_particles):
-            for j in range(len_para):
-                new_velocity = (w * velocities[i][j] +
-                                    c1 * random.random() * (pbest[i][j] - particles[i][j]) +
-                                    c2 * random.random() * (gbest[j] - particles[i][j]))
-                new_position = particles[i][j] + new_velocity
-
-                new_position = max(min(new_position, update_bounds[j][1]), update_bounds[j][0])
-                old_position = particles[i][j]
-                old_velocity = velocities[i][j]
-                # Update only if the new position satisfies the condition
-                particles[i][j] = new_position
-                velocities[i][j] = new_velocity
-
-                temp_con = unflatten(particles[i], parameter)
-                if not conditions(temp_con):
-                    particles[i][j] = old_position
-                    velocities[i][j] = old_velocity
-        #Printing
-        if (iter % 100 == 0) or iter == (max_iterations-1):
-                print(f"Iteration {iter}: Value = {iteration_best_values[iter]}")
-
-    return iteration_best_values
+n_particles = 100
+m_iterations = 500
 
 M = 1  # No. of antennas on BS
 N = N1 = N2 = NB  = 8  # No. IRS elements
@@ -135,6 +37,7 @@ K = 1  # No.of transmit antennas at the relay device
 K_dash = 1 # No. of transmit antennas at the redcap (IoT) device
 q = 1 # No. of Quantization bits. 1,2,..., Q
 m = 1 # m=1,2,..., 2^n-1
+bounds = [(0,1)]*(3*N) + [(0,2*math.pi)]*(3*N) +  [(0,0.5)]*4 + [(0,1)]*4
 
 ####################### Reflection co-efficient matrix for IRS_1 (I1) #########################
 zeta_I1 = [random.uniform(0, 1) for _ in range(N)]
@@ -145,8 +48,7 @@ zeta_IB = [random.uniform(0, 1) for _ in range(N)]
 theta_IB = [random.uniform(0, 2*math.pi) for _ in range(N)]
 
 #### Initialize PSO parameters ####
-n_particles = 100
-m_iterations = 500
+
 inertia= 0.7
 cognitive = 1.4
 social = 1.4
@@ -159,7 +61,7 @@ social = 1.4
 # min_bound = - max_bound
 # bounds = (min_bound, max_bound)
 
-bounds = [(0,1)]*(3*N) + [(0,2*math.pi)]*(3*N) +  [(0,0.5)]*4 + [(0,1)]*4
+
 # print(len(bounds))
 
 ### Rate Thresholds ###
@@ -208,9 +110,8 @@ rate_D11 =  rate_D12 = rate_D21 = rate_D22 = 0
 ### Check with Justin ###
 rho = 0.1
 ### We have Power and IRS Phase shifts to optimize ###
+
 par =  zeta_I1, zeta_I2,  zeta_IB, theta_I1,theta_I2, theta_IB, P_11, P_12, P_21,P_22, P_dash_11, P_dash_12, P_dash_21, P_dash_22
-
-
 
 def find_min(a, b):
   if(a > b):
@@ -352,6 +253,118 @@ def reinit():
     ### Rate of D22 ###
     rate_D22 = math.log2(1 + find_min(SINR_R2_D22, SINR_B_D22))
 
+def conditions(para):
+    global zeta_I1, zeta_I2, zeta_IB, theta_I1, theta_I2, theta_IB, P_11, P_12, P_21, P_22, P_dash_11, P_dash_12, P_dash_21, P_dash_22
+    zeta_I1, zeta_I2, zeta_IB, theta_I1, theta_I2, theta_IB, P_11, P_12, P_21, P_22, P_dash_11, P_dash_12, P_dash_21, P_dash_22 = para
+    reinit()
+    #Recalculate rates based on these parameters
+    condition_1 = (rate_D11 >= R_11_th) and (rate_D12 >= R_12_th) and (rate_D21 >= R_21_th) and (rate_D22 >= R_22_th)
+    ### Test absolute value of channels ###
+    condition_2 = np.abs(H_1_B).item() > np.abs(H_2_B).item()
+    condition_3 = np.abs(H_11_1).item() > np.abs(H_12_1).item()
+    condition_4 = np.abs(H_21_2).item() > np.abs(H_22_2).item()
+    condition_5 = P_11 <= P_11_max and P_22 <= P_22_max and P_21 <= P_21_max and P_12 <= P_12_max
+    condition_6 = P_dash_11 <= P_dash_11_max and P_dash_22 <= P_dash_22_max and P_21 <= P_dash_21_max and P_dash_12 <= P_dash_12_max
+    # print(condition_1 , condition_2 , condition_5 , condition_6)
+    if (condition_1 and condition_2  and condition_3 and condition_4 and condition_5 and condition_6):
+        return True
+    return False
+
+particles_init = []
+velocities_init = []
+pbest_init = []
+
+para = flatten(par)
+len_para_init = len(para)
+for _ in range(n_particles):
+
+    particle = [random.uniform(bounds[i][0], bounds[i][1]) for i in range(len_para_init)]
+    temp_con = unflatten(particle, par)
+    while (conditions(temp_con) == False):
+        particle = [random.uniform(bounds[i][0], bounds[i][1]) for i in range(len_para_init)]
+        temp_con = unflatten(particle, par)
+    particles_init.append(particle)
+    velocities_init.append([0] * (len_para_init))
+    pbest_init.append(particle[:])
+
+
+def pso_function(parameter, bounds, n_particles, max_iterations, inertia, cognitive, social):
+
+    print("PSO Algorithm Started")
+
+    num_particles = n_particles
+    global m_iterations
+    w = inertia  # inertia weight
+    c1 = cognitive  # cognitive constant
+    c2 = social  # social constant
+
+    para = flatten(parameter)
+    len_para = len(para)
+    update_bounds = flatten(bounds)
+    particles = copy.deepcopy(particles_init)
+    velocities = copy.deepcopy(velocities_init)
+    pbest = copy.deepcopy(pbest_init)
+
+
+    gbest = None
+    gbest_value = -float('inf')
+    iteration_best_values = []
+    r1 = [random.random() for _ in range(len_para)]
+    r2 = [random.random() for _ in range(len_para)]
+
+
+
+    # PSO loop
+    for iter in range(m_iterations):
+        iteration_best_value = -float('inf')
+        for i in range(n_particles):
+            current_position = particles[i]
+            temp = unflatten(current_position, parameter)
+            fitness = objective_function(temp)
+
+            # Update personal best
+            temp = unflatten(pbest[i], parameter)
+            if fitness > objective_function(temp):
+                pbest[i] = current_position[:]
+
+            # Update global best
+            if fitness > gbest_value:
+                gbest = current_position[:]
+                gbest_value = fitness
+
+            # Update iteration best value
+            if fitness > iteration_best_value:
+                iteration_best_value = fitness
+
+        # Record the best value found in this iteration
+        iteration_best_values.append(iteration_best_value)
+
+        # Update velocities and particles
+        for i in range(num_particles):
+            for j in range(len_para):
+                new_velocity = (w * velocities[i][j] +
+                                    c1 * random.random() * (pbest[i][j] - particles[i][j]) +
+                                    c2 * random.random() * (gbest[j] - particles[i][j]))
+                new_position = particles[i][j] + new_velocity
+
+                new_position = max(min(new_position, update_bounds[j][1]), update_bounds[j][0])
+                old_position = particles[i][j]
+                old_velocity = velocities[i][j]
+                # Update only if the new position satisfies the condition
+                particles[i][j] = new_position
+                velocities[i][j] = new_velocity
+
+                temp_con = unflatten(particles[i], parameter)
+                if not conditions(temp_con):
+                    particles[i][j] = old_position
+                    velocities[i][j] = old_velocity
+        #Printing
+        if (iter % 100 == 0) or iter == (max_iterations-1):
+                print(f"Iteration {iter}: Value = {iteration_best_values[iter]}")
+
+    return iteration_best_values
+
+
 ### Initialize the initial Global vars
 reinit()
 
@@ -379,13 +392,154 @@ def objective_function(para):
    ## Recalculate rates based on these values.
    return rate_D11 + rate_D11 + rate_D21 +  rate_D22
 
-a = pso_function(par, bounds, n_particles, m_iterations, inertia, cognitive, social)
 
-plt.plot(np.arange(len(a)), a, label='PSO')
-plt.title('Optimization')
+#### Initialize PSO parameters ####
+n_particles = 100
+
+inertia= 0.7
+cognitive = 1.4
+social = 1.4
+
+a = pso_function(par, bounds, n_particles, m_iterations, inertia, cognitive, social)
+plt.plot(np.arange(len(a)), a, label=f'no. of particles = {n_particles}, inertia (w) = {inertia}, cognitive (c1) = {cognitive}, social (c2) = {social}', linestyle = 'dashed')
+
+n_particles = 100
+
+inertia= 0.7
+cognitive = 1.4
+social = 1.4
+
+a = pso_function(par, bounds, n_particles, m_iterations, inertia, cognitive, social)
+plt.plot(np.arange(len(a)), a, label=f'no. of particles = {n_particles}, inertia (w) = {inertia}, cognitive (c1) = {cognitive}, social (c2) = {social}', linestyle = 'dashed')
+
+n_particles = 100
+
+inertia= 0.7
+cognitive = 1.4
+social = 1.4
+
+a = pso_function(par, bounds, n_particles, m_iterations, inertia, cognitive, social)
+plt.plot(np.arange(len(a)), a, label=f'no. of particles = {n_particles}, inertia (w) = {inertia}, cognitive (c1) = {cognitive}, social (c2) = {social}', linestyle = 'dashed')
+
+n_particles = 100
+
+inertia= 0.7
+cognitive = 1.4
+social = 1.4
+
+a = pso_function(par, bounds, n_particles, m_iterations, inertia, cognitive, social)
+plt.plot(np.arange(len(a)), a, label=f'no. of particles = {n_particles}, inertia (w) = {inertia}, cognitive (c1) = {cognitive}, social (c2) = {social}', linestyle = 'dashed')
+
+n_particles = 100
+
+inertia= 0.7
+cognitive = 1.4
+social = 1.4
+
+a = pso_function(par, bounds, n_particles, m_iterations, inertia, cognitive, social)
+plt.plot(np.arange(len(a)), a, label=f'no. of particles = {n_particles}, inertia (w) = {inertia}, cognitive (c1) = {cognitive}, social (c2) = {social}', linestyle = 'dashed')
+
+n_particles = 100
+
+inertia= 0.7
+cognitive = 1.4
+social = 1.4
+
+a = pso_function(par, bounds, n_particles, m_iterations, inertia, cognitive, social)
+plt.plot(np.arange(len(a)), a, label=f'no. of particles = {n_particles}, inertia (w) = {inertia}, cognitive (c1) = {cognitive}, social (c2) = {social}', linestyle = 'dashed')
+
+n_particles = 100
+
+inertia= 0.7
+cognitive = 1.4
+social = 1.4
+
+a = pso_function(par, bounds, n_particles, m_iterations, inertia, cognitive, social)
+plt.plot(np.arange(len(a)), a, label=f'no. of particles = {n_particles}, inertia (w) = {inertia}, cognitive (c1) = {cognitive}, social (c2) = {social}', linestyle = 'dashed')
+
+n_particles = 100
+
+inertia= 0.7
+cognitive = 1.4
+social = 1.4
+
+a = pso_function(par, bounds, n_particles, m_iterations, inertia, cognitive, social)
+plt.plot(np.arange(len(a)), a, label=f'no. of particles = {n_particles}, inertia (w) = {inertia}, cognitive (c1) = {cognitive}, social (c2) = {social}', linestyle = 'dashed')
+
+n_particles = 100
+
+inertia= 0.7
+cognitive = 1.4
+social = 1.4
+
+a = pso_function(par, bounds, n_particles, m_iterations, inertia, cognitive, social)
+plt.plot(np.arange(len(a)), a, label=f'no. of particles = {n_particles}, inertia (w) = {inertia}, cognitive (c1) = {cognitive}, social (c2) = {social}', linestyle = 'dashed')
+
+n_particles = 100
+
+inertia= 0.7
+cognitive = 1.4
+social = 1.4
+
+a = pso_function(par, bounds, n_particles, m_iterations, inertia, cognitive, social)
+plt.plot(np.arange(len(a)), a, label=f'no. of particles = {n_particles}, inertia (w) = {inertia}, cognitive (c1) = {cognitive}, social (c2) = {social}', linestyle = 'dashed')
+
+n_particles = 100
+
+inertia= 0.7
+cognitive = 1.4
+social = 1.4
+
+a = pso_function(par, bounds, n_particles, m_iterations, inertia, cognitive, social)
+plt.plot(np.arange(len(a)), a, label=f'no. of particles = {n_particles}, inertia (w) = {inertia}, cognitive (c1) = {cognitive}, social (c2) = {social}', linestyle = 'dashed')
+
+
+# n_particles = 20
+#
+# inertia= 0.9
+# cognitive = 0.3
+# social = 0.5
+#
+# a = pso_function(par, bounds, n_particles, m_iterations, inertia, cognitive, social)
+# plt.plot(np.arange(len(a)), a, label=f'no. of particles = {n_particles}, inertia (w) = {inertia}, cognitive (c1) = {cognitive}, social (c2) = {social}', linestyle = 'dashed')
+#
+# n_particles = 50
+#
+# inertia= 0.9
+# cognitive = 0.3
+# social = 0.5
+#
+# a = pso_function(par, bounds, n_particles, m_iterations, inertia, cognitive, social)
+# plt.plot(np.arange(len(a)), a, label=f'no. of particles = {n_particles}, inertia (w) = {inertia}, cognitive (c1) = {cognitive}, social (c2) = {social}', linestyle = 'dashed')
+#
+# n_particles = 100
+#
+# inertia= 0.9
+# cognitive = 0.3
+# social = 0.5
+#
+# a = pso_function(par, bounds, n_particles, m_iterations, inertia, cognitive, social)
+# plt.plot(np.arange(len(a)), a, label=f'no. of particles = {n_particles}, inertia (w) = {inertia}, cognitive (c1) = {cognitive}, social (c2) = {social}', linestyle = 'dashed')
+#
+# n_particles = 100
+#
+# inertia= 0.7
+# cognitive = 3.2
+# social = 2.8
+#
+# a = pso_function(par, bounds, n_particles, m_iterations, inertia, cognitive, social)
+# plt.plot(np.arange(len(a)), a, label=f'no. of particles = {n_particles}, inertia (w) = {inertia}, cognitive (c1) = {cognitive}, social (c2) = {social}', linestyle = 'dashed')
+
+
+plt.title(f'Optimization')
 plt.xlabel('Iteration')
 plt.ylabel('Sum Rate')
 plt.legend()
-plt.tight_layout()
 plt.grid(True)
+plt.tight_layout()
+import time
+current_timestamp = time.time()
+plt.savefig(f"PSO{current_timestamp}.svg")
+plt.xlim(0, m_iterations)
+plt.xlim(0)
 plt.show()

@@ -94,9 +94,9 @@ def Rician_Fading_Channels(M,N,dist,pl, Kdb):
 
 
 def generate_channel(trans, receive, path_loss, M=2):
-    msr = M
-    var_sr = path_loss
-    x1 = np.random.gamma(msr,(var_sr)/msr,size=(trans,receive))
+    m = M
+    pl = path_loss
+    x1 = np.random.gamma(m,(pl)/m,size=(trans,receive))
     y1 = 2 * math.pi * np.random.randn(trans, receive)
     zsr = x1**(1j * y1)
     h_sr = np.sqrt(zsr)
@@ -241,6 +241,7 @@ def objective_function(par):
 
 
 def evaluate_objective(par):
+    ### 3 IRS therefore zeta 1,2,3 followed by theta 1,2,3
     phi_I1_value = [math.sqrt(zeta) * math.exp(theta) for zeta, theta in zip(par[0:N - 1], par[3 * N: 3 * N + N - 1])]
     ### Generate a complex matrix ###
     phi_I1 = np.zeros((N, N), dtype=complex)
@@ -282,7 +283,7 @@ def evaluate_objective(par):
     P_dash_12 = par[6 * N + 5]
     P_dash_21 = par[6 * N + 6]
     P_dash_22 = par[6 * N + 7]
-    F_1 = (P_21 * np.abs(H_22_1.item()) ** 2) + (
+    F_1 = (P_21 * np.abs(H_21_1.item()) ** 2) + (
             (P_dash_21 + P_dash_22) * np.abs(H_2_1.item()) ** 2 + np.abs(h_1_1.item()) ** 2 * rho ** 2 * (
             P_dash_11 + P_dash_12)) + P_22 * np.abs(H_22_1) ** 2
     # SINR at R1 to detect symbol of D11 considering D12 as interference assuming H11_1 > H12_1
@@ -371,7 +372,7 @@ def evaluate_conditions(H_11_1, H_12_1, H_1_B, H_21_2, H_22_2, H_2_B, P_11, P_12
     return penalty
 
 
-bounds = [(0,1)]*(3*N) + [(0,2*math.pi)]*(3*N) +  [(0,0.5)]*4 + [(0,1)]*4
+bounds = [(0,1)]*(3*N) + [np.arange(0, 2*np.pi, .15)]*(3*N) +  [(0,0.5)]*4 + [(0,1)]*4
 n_dimension = 6*N+8
 
 w1 = 0.9
@@ -391,7 +392,17 @@ def init_particles():
     velocities = []
     pbest = []
     for _ in range(n_particles):
-        particle = [random.uniform(bounds[i][0], bounds[i][1]) for i in range(n_dimension)]
+        particle1 = [random.uniform(bounds[i][0], bounds[i][1]) for i in range(0, 3 * N)]
+        particle2 = [random.choice(bounds[i]) for i in range(3 * N, 2 * 3 * N)]
+        particle3 = [random.uniform(bounds[i][0], bounds[i][1]) for i in range(6 * N, n_dimension)]
+        particle = particle1 + particle2 + particle3
+        H_11_1, H_12_1, H_1_B, H_21_2, H_22_2, H_2_B, P_11, P_12, P_21, P_22, P_dash_11, P_dash_12, P_dash_21, P_dash_22, rate_D11, rate_D12, rate_D21, rate_D22 =  evaluate_objective(particle)
+        while (evaluate_conditions(H_11_1, H_12_1, H_1_B, H_21_2, H_22_2, H_2_B, P_11, P_12, P_21, P_22, P_dash_11, P_dash_12, P_dash_21, P_dash_22, rate_D11, rate_D12, rate_D21, rate_D22) != 0.0):
+            particle1 = [random.uniform(bounds[i][0], bounds[i][1]) for i in range(0, 3 * N)]
+            particle2 = [random.choice(bounds[i]) for i in range(3 * N, 2 * 3 * N)]
+            particle3 = [random.uniform(bounds[i][0], bounds[i][1]) for i in range(6 * N, n_dimension)]
+            particle = particle1 + particle2 + particle3
+            H_11_1, H_12_1, H_1_B, H_21_2, H_22_2, H_2_B, P_11, P_12, P_21, P_22, P_dash_11, P_dash_12, P_dash_21, P_dash_22, rate_D11, rate_D12, rate_D21, rate_D22 = evaluate_objective(particle)
         particles.append(particle)
         velocities.append([0] * n_dimension)
         pbest.append(particle[:])
@@ -457,7 +468,7 @@ def penalty_pso_function(particles, pbest, velocities, r1, r2):
                 particles[i][j] = new_position
                 velocities[i][j] = new_velocity
                 if(death_penalty):
-                    H_11_1, H_12_1, H_1_B, H_21_2, H_22_2, H_2_B, P_11, P_12, P_21, P_22, P_dash_11, P_dash_12, P_dash_21, P_dash_22, rate_D11, rate_D12, rate_D21, rate_D22 =     evaluate_objective(particles[i])
+                    H_11_1, H_12_1, H_1_B, H_21_2, H_22_2, H_2_B, P_11, P_12, P_21, P_22, P_dash_11, P_dash_12, P_dash_21, P_dash_22, rate_D11, rate_D12, rate_D21, rate_D22 =   evaluate_objective(particles[i])
                     if (evaluate_conditions(H_11_1, H_12_1, H_1_B, H_21_2, H_22_2, H_2_B, P_11, P_12, P_21, P_22, P_dash_11, P_dash_12, P_dash_21, P_dash_22, rate_D11, rate_D12, rate_D21, rate_D22) != 0.0):
                         particles[i][j] = old_position
                         velocities[i][j] = old_velocity
@@ -467,15 +478,17 @@ def penalty_pso_function(particles, pbest, velocities, r1, r2):
                 # print(f"Iteration {iter}: Value = {iteration_best_values[iter]}")
 
     return iteration_best_values, iteration_best_values[m_iterations-1]
-
-# particles, velocities, pbest = init_particles()
 # init_channel()
+channels = np.load('channels.npz',allow_pickle=True)
+channels = channels[channels.files[0]].tolist()
+h_I1_1, h_11_I1, h_12_I1, h_12_1, h_11_1, h_I2_2, h_21_I2, h_22_I2, h_21_2, h_22_2, h_IB_B, h_2_IB, h_1_IB, h_2_B, h_1_B, h_IB_1, h_IB_2, h_I1_2, h_I2_1, h_1_1, h_2_2 = channels
+particles, velocities, pbest = init_particles()
+
 
 # r1 = [np.random.rand(m_iterations, n_particles, n_dimension) for _ in range(mc_count)]
 # r2 = [np.random.rand(m_iterations, n_particles, n_dimension) for _ in range(mc_count)]
 # #
-channels = np.load('channels.npz',allow_pickle=True)
-channels = channels[channels.files[0]].tolist()
+
 velocities = np.load('FinalArrays/velocities.npz')
 velocities = velocities[velocities.files[0]].tolist()
 particles = np.load('FinalArrays/particles.npz')
@@ -486,12 +499,12 @@ r1 = np.load('r1.npz')
 r1 = r1 [r1.files[0]].tolist()
 r2 = np.load('r2.npz')
 r2 = r2 [r2.files[0]].tolist()
-h_I1_1, h_11_I1, h_12_I1, h_12_1, h_11_1, h_I2_2, h_21_I2, h_22_I2, h_21_2, h_22_2, h_IB_B, h_2_IB, h_1_IB, h_2_B, h_1_B, h_IB_1, h_IB_2, h_I1_2, h_I2_1, h_1_1, h_2_2 = channels
+
 
 pso_convergence_list=[]
 x =  range(1,m_iterations+1)
-def calc_sum_rate(type):
-    print(f"P_max:{P_12_max}")
+def calc_sum_rate():
+    print(f"R_min:{R_11_th}")
     bval_list = []
     best_val_iter_list = []
     for i in range(mc_count):
@@ -500,7 +513,7 @@ def calc_sum_rate(type):
         best_val_iter_list.append(best_val_iter)
     pso_convergence = np.mean(best_val_iter_list, axis=0, dtype=np.float64)
     pso_convergence_list.append(pso_convergence)
-    plt.plot(x, pso_convergence, marker="o", markevery=5,label=f'{type}')
+    # plt.plot(x, pso_convergence, marker="o", markevery=5,label=f'{type}')
     print('Mean Sum Rate:', np.mean(bval_list))
 
 print("====Full IRS========")
@@ -510,162 +523,201 @@ alpha = 1
 beta = 1
 type="IRS between Device-Relay and Relay-BS"
 
-# # R_11_th = R_12_th = R_21_th = R_22_th = 2
-# # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 2x`
-# P_11_max = P_12_max = P_21_max = P_22_max = 2
-# calc_sum_rate()
-#
-# R_11_th = R_12_th = R_21_th = R_22_th = 1
-# # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 1
+R_11_th = R_12_th = R_21_th = R_22_th = 1
+# P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 1
 # P_11_max = P_12_max = P_21_max = P_22_max = 1
+calc_sum_rate()
+# #
+# R_11_th = R_12_th = R_21_th = R_22_th = 5
+# # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 0.9
+# # P_11_max = P_12_max = P_21_max = P_22_max = 0.9
 # calc_sum_rate()
-
-# P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 0.5
+# #
+# # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 0.8
+# R_11_th = R_12_th = R_21_th = R_22_th = 4
+# # P_11_max = P_12_max = P_21_max = P_22_max = 0.8
+# calc_sum_rate()
+# #
+# # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 0.7
+# R_11_th = R_12_th = R_21_th = R_22_th = 3
+# # P_11_max = P_12_max = P_21_max = P_22_max = 0.7
+# calc_sum_rate()
+# #
+# # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 0.6
+# R_11_th = R_12_th = R_21_th = R_22_th = 2
+# # P_11_max = P_12_max = P_21_max = P_22_max = 0.6
+# calc_sum_rate()
+# #
+# # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 0.5
+# R_11_th = R_12_th = R_21_th = R_22_th = 1
+# # P_11_max = P_12_max = P_21_max = P_22_max = 0.5
+# calc_sum_rate()
+# #
+# # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 0.5
 # R_11_th = R_12_th = R_21_th = R_22_th = 0.5
-# P_11_max = P_12_max = P_21_max = P_22_max = 0.5
+# # P_11_max = P_12_max = P_21_max = P_22_max = 0.5
 # calc_sum_rate()
 #
-# # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 0.25
-# # R_11_th = R_12_th = R_21_th = R_22_th = 0.25
-# P_11_max = P_12_max = P_21_max = P_22_max = 0.25
+# R_11_th = R_12_th = R_21_th = R_22_th = 0.25
+# # # P_11_max = P_12_max = P_21_max = P_22_max = 0.5
 # calc_sum_rate()
-#
-# # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 0.1
-# # R_11_th = R_12_th = R_21_th = R_22_th = 0.1
-# P_11_max = P_12_max = P_21_max = P_22_max = 0.1
-# calc_sum_rate()
-#
-# # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 0.05
-# # R_11_th = R_12_th = R_21_th = R_22_th = 0.05
-# P_11_max = P_12_max = P_21_max = P_22_max = 0.05
-death_penalty = True
-calc_sum_rate("PSO with Death Penalty")
 
-death_penalty = False
-calc_sum_rate("PSO with Dynamic Penalty")
+
+#####################################################
+# death_penalty = True
+# calc_sum_rate("PSO with Death Penalty")
+#
+# death_penalty = False
+# calc_sum_rate("PSO with Dynamic Penalty")
+###########################################################
 
 
 
 
 # print("==========No IRS between Device and Relay============")
-# gamma = 1
-# mu = 1
-# alpha = 0
-# beta = 1
+gamma = 1
+mu = 0
+alpha = 1
+beta = 1
 # type="IRS between Relay-BS"
 # #
-# # # # R_11_th = R_12_th = R_21_th = R_22_th = 2
-# # # # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 2
-# # # P_11_max = P_12_max = P_21_max = P_22_max = 2
-# # # calc_sum_rate()
-# # #
-# # # # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 1
-# # # # R_11_th = R_12_th = R_21_th = R_22_th = 1
-# # # P_11_max = P_12_max = P_21_max = P_22_max = 1
-# # # calc_sum_rate()
+# R_11_th = R_12_th = R_21_th = R_22_th = 10
+# # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 1
+# # P_11_max = P_12_max = P_21_max = P_22_max = 1
+# calc_sum_rate()
 # #
-# # # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 0.5
-# # # R_11_th = R_12_th = R_21_th = R_22_th = 0.5
+# # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 0.9
+# R_11_th = R_12_th = R_21_th = R_22_th = 5
+# # P_11_max = P_12_max = P_21_max = P_22_max = 0.9
+# calc_sum_rate()
+# #
+# # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 0.8
+# R_11_th = R_12_th = R_21_th = R_22_th = 4
+# # P_11_max = P_12_max = P_21_max = P_22_max = 0.8
+# calc_sum_rate()
+# #
+# # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 0.7
+# R_11_th = R_12_th = R_21_th = R_22_th = 3
+# # P_11_max = P_12_max = P_21_max = P_22_max = 0.7
+# calc_sum_rate()
+# #
+# # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 0.6
+# R_11_th = R_12_th = R_21_th = R_22_th = 2
+# # P_11_max = P_12_max = P_21_max = P_22_max = 0.6
+# calc_sum_rate()
+# #
+# # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 0.5
+# R_11_th = R_12_th = R_21_th = R_22_th = 1
 # # P_11_max = P_12_max = P_21_max = P_22_max = 0.5
-# # calc_sum_rate()
+# calc_sum_rate()
 # #
-# # # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 0.25
-# # # R_11_th = R_12_th = R_21_th = R_22_th = 0.25
-# # P_11_max = P_12_max = P_21_max = P_22_max = 0.25
-# # calc_sum_rate()
-# #
-# # # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 0.1
-# # # R_11_th = R_12_th = R_21_th = R_22_th = 0.1
-# # P_11_max = P_12_max = P_21_max = P_22_max = 0.1
-# # calc_sum_rate()
-# #
-# # # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 0.05
-# # # R_11_th = R_12_th = R_21_th = R_22_th = 0.05
-# # P_11_max = P_12_max = P_21_max = P_22_max = 0.05
-# calc_sum_rate(type)
+# # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 0.5
+# R_11_th = R_12_th = R_21_th = R_22_th = 0.5
+# # P_11_max = P_12_max = P_21_max = P_22_max = 0.5
+# calc_sum_rate()
 #
-# print("========== No IRS between Relay and BS ===========")
+# R_11_th = R_12_th = R_21_th = R_22_th = 0.25
+# # # P_11_max = P_12_max = P_21_max = P_22_max = 0.5
+# calc_sum_rate()
+# #
+# # print("========== No IRS between Relay and BS ===========")
 # gamma = 1
 # mu = 1
 # alpha = 1
 # beta = 0
-# type="IRS between Device-Relay"
-# # ### Rate Thresholds ###
-# # # R_11_th = R_12_th = R_21_th = R_22_th = 2
-# # # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 2
-# # P_11_max = P_12_max = P_21_max = P_22_max = 2
-# # calc_sum_rate()
-# #
-# # # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 1
-# # # R_11_th = R_12_th = R_21_th = R_22_th = 1
+# # type="IRS between Device-Relay"
+# R_11_th = R_12_th = R_21_th = R_22_th = 10
+# # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 1
 # # P_11_max = P_12_max = P_21_max = P_22_max = 1
-# # calc_sum_rate()
-#
+# calc_sum_rate()
+# #
+# R_11_th = R_12_th = R_21_th = R_22_th = 5
+# # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 0.9
+# # P_11_max = P_12_max = P_21_max = P_22_max = 0.9
+# calc_sum_rate()
+# #
+# # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 0.8
+# R_11_th = R_12_th = R_21_th = R_22_th = 4
+# # P_11_max = P_12_max = P_21_max = P_22_max = 0.8
+# calc_sum_rate()
+# #
+# # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 0.7
+# R_11_th = R_12_th = R_21_th = R_22_th = 3
+# # P_11_max = P_12_max = P_21_max = P_22_max = 0.7
+# calc_sum_rate()
+# #
+# # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 0.6
+# R_11_th = R_12_th = R_21_th = R_22_th = 2
+# # P_11_max = P_12_max = P_21_max = P_22_max = 0.6
+# calc_sum_rate()
+# #
 # # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 0.5
-# # R_11_th = R_12_th = R_21_th = R_22_th = 0.5
+# R_11_th = R_12_th = R_21_th = R_22_th = 1
 # # P_11_max = P_12_max = P_21_max = P_22_max = 0.5
-# calc_sum_rate(type)
+# calc_sum_rate()
 # #
-# # # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 0.25
-# # # R_11_th = R_12_th = R_21_th = R_22_th = 0.25
-# # P_11_max = P_12_max = P_21_max = P_22_max = 0.25
-# # calc_sum_rate()
-# #
-# # # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 0.1
-# # # R_11_th = R_12_th = R_21_th = R_22_th = 0.1
-# # P_11_max = P_12_max = P_21_max = P_22_max = 0.1
-# # calc_sum_rate()
-# #
-# # # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 0.05
-# # # R_11_th = R_12_th = R_21_th = R_22_th = 0.05
-# # P_11_max = P_12_max = P_21_max = P_22_max = 0.05
-# # calc_sum_rate()
+# # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 0.5
+# R_11_th = R_12_th = R_21_th = R_22_th = 0.5
+# # P_11_max = P_12_max = P_21_max = P_22_max = 0.5
+# calc_sum_rate()
 #
-# print("========== No IRS =========")
+# R_11_th = R_12_th = R_21_th = R_22_th = 0.25
+# # # P_11_max = P_12_max = P_21_max = P_22_max = 0.5
+# calc_sum_rate()
+# #
+# # print("========== No IRS =========")
 # gamma = 1
 # mu = 0
 # alpha = 1
 # beta = 1
-# type = "No IRS"
-#
-# # # R_11_th = R_12_th = R_21_th = R_22_th = 2
-# # # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 2
-# # P_11_max = P_12_max = P_21_max = P_22_max = 2
-# # calc_sum_rate()
+# # type = "No IRS"
 # #
-# # # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 1
-# # # R_11_th = R_12_th = R_21_th = R_22_th = 1
+# R_11_th = R_12_th = R_21_th = R_22_th = 10
+# # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 1
 # # P_11_max = P_12_max = P_21_max = P_22_max = 1
-# # calc_sum_rate()
-#
+# calc_sum_rate()
+# #
+# R_11_th = R_12_th = R_21_th = R_22_th = 5
+# # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 0.9
+# # P_11_max = P_12_max = P_21_max = P_22_max = 0.9
+# calc_sum_rate()
+# #
+# # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 0.8
+# R_11_th = R_12_th = R_21_th = R_22_th = 4
+# # P_11_max = P_12_max = P_21_max = P_22_max = 0.8
+# calc_sum_rate()
+# #
+# # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 0.7
+# R_11_th = R_12_th = R_21_th = R_22_th = 3
+# # P_11_max = P_12_max = P_21_max = P_22_max = 0.7
+# calc_sum_rate()
+# #
+# # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 0.6
+# R_11_th = R_12_th = R_21_th = R_22_th = 2
+# # P_11_max = P_12_max = P_21_max = P_22_max = 0.6
+# calc_sum_rate()
+# #
 # # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 0.5
-# # R_11_th = R_12_th = R_21_th = R_22_th = 0.5
+# R_11_th = R_12_th = R_21_th = R_22_th = 1
 # # P_11_max = P_12_max = P_21_max = P_22_max = 0.5
-# # calc_sum_rate()
+# calc_sum_rate()
 # #
-# # # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 0.25
-# # # R_11_th = R_12_th = R_21_th = R_22_th = 0.25
-# # P_11_max = P_12_max = P_21_max = P_22_max = 0.25
-# # calc_sum_rate()
-# #
-# # # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 0.1
-# # # R_11_th = R_12_th = R_21_th = R_22_th = 0.1
-# # P_11_max = P_12_max = P_21_max = P_22_max = 0.1
-# # calc_sum_rate()
-# #
-# # # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 0.05
-# # # R_11_th = R_12_th = R_21_th = R_22_th = 0.05
-# # P_11_max = P_12_max = P_21_max = P_22_max = 0.05
-# calc_sum_rate(type)
+# # P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 0.5
+# R_11_th = R_12_th = R_21_th = R_22_th = 0.5
+# # P_11_max = P_12_max = P_21_max = P_22_max = 0.5
+# calc_sum_rate()
 #
-# np.savez('pso_convergence_list.npz',type=pso_convergence_list)
-plt.xlabel("No. of Iterations")
-plt.ylabel("Sum Rate (Mbps)")
-plt.legend()
-
-
-current_timestamp = time.time()
-plt.savefig(f"PSO{current_timestamp}.svg")
-plt.show()
-
-plt.show()
+# R_11_th = R_12_th = R_21_th = R_22_th = 0.25
+# # # P_11_max = P_12_max = P_21_max = P_22_max = 0.5
+# calc_sum_rate()
+# #
+# # np.savez('pso_convergence_list.npz',type=pso_convergence_list)
+# # plt.xlabel("No. of Iterations")
+# # plt.ylabel("Sum Rate (Mbps)")
+# # plt.legend()
+# #
+# #
+# # current_timestamp = time.time()
+# # plt.savefig(f"PSO{current_timestamp}.svg")
+# # plt.show()
+#

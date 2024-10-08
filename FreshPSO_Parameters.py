@@ -14,13 +14,20 @@ D_11_I1 = 10
 D_12_I1 = 13
 D_21_I2 = 15
 D_22_I2 = 18
+
+
+
 D_1_IB = 5
 D_2_IB = 9
+
 D_I1_1 = 4
 D_I2_1 = 8
+
 D_I2_2 = 6
 D_I1_2 = 10
+
 D_IB_B = 10
+
 D_12_1 = 40
 D_11_1 = 30
 D_22_2 = 25
@@ -36,22 +43,25 @@ q = 1 # No. of Quantization bits. 1,2,..., Q
 m = 1 # m=1,2,..., 2^n-1
 rho = 0.1
 
-n_particles = 200
+n_particles = 100
+m_iterations = 250
 inertia= 0.7
+
 cognitive = 1.4
 social = 1.4
 ### Indicator for Direct Link
 gamma = 1
+
 ### Indicator for no-IRS
 mu = 1
+
 ### Indicator for IRS in Relay to Device
 alpha = 1
+
 ## Indicator for IRS in Relay to BS
 beta = 1
-channels=[]
 
-isFD = True
-isOMA = False
+channels=[]
 
 def find_min(a, b):
   if(a > b):
@@ -71,13 +81,13 @@ def find_min(a, b):
 #pl is path-loss exponent
 #Kdb is the Rician factor in dB
 
-def Rician_Fading_Channels(M,N,dist,pl, Kdb):
-    K = 10**(Kdb/10) #dB to mW
-    mu = np.sqrt( K/((K+1))) #direct path
-    s = np.sqrt( 1/(2*(K+1))) #scattered paths
-    Hw = mu + s*(np.random.randn(M,N)+1j*np.random.randn(M,N)) #Rician channel
-    H = np.sqrt(1/(dist**pl))*Hw  #Rician channel with pathloss
-    return H
+# def Rician_Fading_Channels(M,N,dist,pl, Kdb):
+#     K = 10**(Kdb/10) #dB to mW
+#     mu = np.sqrt( K/((K+1))) #direct path
+#     s = np.sqrt( 1/(2*(K+1))) #scattered paths
+#     Hw = mu + s*(np.random.randn(M,N)+1j*np.random.randn(M,N)) #Rician channel
+#     H = np.sqrt(1/(dist**pl))*Hw  #Rician channel with pathloss
+#     return H
 
 
 def generate_channel(trans, receive, path_loss, M=2):
@@ -210,30 +220,16 @@ R_11_th = R_12_th = R_21_th = R_22_th = 0.05
 P_11_max = P_12_max = P_21_max = P_22_max = 0.5
 P_dash_11_max = P_dash_12_max = P_dash_21_max = P_dash_22_max = 1
 
-death_penalty = False
+
 
 def objective_function(par):
 
-    H_11_1, H_12_1, H_1_B, H_21_2, H_22_2, H_2_B, P_11, P_12, P_21, P_22, P_dash_11, P_dash_12, P_dash_21, P_dash_22, rate_D11, rate_D12, rate_D21, rate_D22 = evaluate_objective(
-        par)
-    penalty = 0.0
-    penalty = evaluate_conditions(H_11_1, H_12_1, H_1_B, H_21_2, H_22_2, H_2_B, P_11, P_12, P_21, P_22, P_dash_11, P_dash_12,
-                        P_dash_21, P_dash_22, rate_D11, rate_D12, rate_D21, rate_D22)
-
-    rate = (rate_D11 + rate_D12 + rate_D21 + rate_D22)
-    if(death_penalty):
-        return rate
-    else:
-        return rate - penalty
-
-
-def evaluate_objective(par):
     phi_I1_value = [math.sqrt(zeta) * math.exp(theta) for zeta, theta in zip(par[0:N - 1], par[3 * N: 3 * N + N - 1])]
     ### Generate a complex matrix ###
     phi_I1 = np.zeros((N, N), dtype=complex)
     np.fill_diagonal(phi_I1, phi_I1_value)
     ####################### Reflection co-efficient matrix for IRS_2 (I2) #########################
-    ### Only one phase coeffi  cient matrix is assumed as it is NOT STAR IRS ###
+    ### Only one phase coefficient matrix is assumed as it is NOT STAR IRS ###
     phi_I2_value = [math.sqrt(zeta) * math.exp(theta) for zeta, theta in
                     zip(par[N:2 * N - 1], par[3 * N + N: 3 * N + 2 * N - 1])]
     ### Generate a complex matrix ###
@@ -261,6 +257,7 @@ def evaluate_objective(par):
     H_12_2 = np.dot(np.dot(np.conjugate(h_I1_2).transpose(), phi_I1), h_12_I1.transpose())
     H_11_2 = np.dot(np.dot(np.conjugate(h_I1_2).transpose(), phi_I1), h_11_I1.transpose())
     ### Calculate SINR Values ###
+
     P_11 = par[6 * N]
     P_12 = par[6 * N + 1]
     P_21 = par[6 * N + 2]
@@ -269,68 +266,41 @@ def evaluate_objective(par):
     P_dash_12 = par[6 * N + 5]
     P_dash_21 = par[6 * N + 6]
     P_dash_22 = par[6 * N + 7]
-
-
-    if(isFD):
-        F_1 = P_21 * np.abs(H_21_1.item()) ** 2 + \
-              ((P_dash_21 + P_dash_22) * np.abs(H_2_1.item()) ** 2 +
-               np.abs(h_1_1.item()) ** 2 * rho ** 2 * (P_dash_11 + P_dash_12)) + \
-               P_22 * np.abs(H_22_1.item()) ** 2
-    elif (not isOMA and not isFD):
-
-        ## Interference from D21 and D22
-        F_1 = (P_21 * np.abs(H_22_1.item()) ** 2) +  P_22 * np.abs(H_22_1.item()) ** 2
-    else:
-        F_1 =  np.abs(h_1_1.item()) ** 2 * rho ** 2 * (P_dash_11 + P_dash_12)
+    F_1 = (P_21 * np.abs(H_21_1.item()) ** 2) + (
+            (P_dash_21 + P_dash_22) * np.abs(H_2_1.item()) ** 2 + np.abs(h_1_1.item()) ** 2 * rho ** 2 * (
+            P_dash_11 + P_dash_12)) + P_22 * np.abs(H_22_1.item()) ** 2
     # SINR at R1 to detect symbol of D11 considering D12 as interference assuming H11_1 > H12_1
     SINR_R1_D11 = (P_11 * np.abs(H_11_1.item()) ** 2) / (P_12 * np.abs(H_12_1.item()) ** 2 + F_1 + sigma_1 ** 2)
     # SINR at R1 to detect symbol of D12 considering D11 as interference assuming D11 has already been decoded
     SINR_R1_D12 = (P_12 * np.abs(H_12_1.item()) ** 2) / (F_1 + sigma_1 ** 2)
     # SINR at R2
-    if (isFD):
-        F_2 = P_11 * np.abs(H_11_2.item()) ** 2 + P_12 * np.abs(H_12_2.item()) ** 2 + (P_dash_11 + P_dash_12) * np.abs(
-            H_1_2.item()) ** 2 + np.abs(h_2_2.item()) ** 2 * rho ** 2 * (P_dash_21 + P_dash_22) + P_dash_22
-    elif (not isOMA and not isFD):
-        ## Interference from D11 and D12
-        F_2 = P_11 * np.abs(H_11_2.item()) ** 2 +  P_12 * np.abs(H_12_2.item()) ** 2
-    else:
-        F_2 = np.abs(h_2_2.item()) ** 2 * rho ** 2 * (P_dash_21 + P_dash_22)
+    F_2 = P_11 * np.abs(H_11_2.item()) ** 2 + P_12 * np.abs(H_12_2.item()) ** 2 + (P_dash_11 + P_dash_12) * np.abs(
+        H_1_2.item()) ** 2 + np.abs(h_2_2.item()) ** 2 * rho ** 2 * (P_dash_21 + P_dash_12) + P_dash_22
     SINR_R2_D21 = P_21 * np.abs(H_21_2.item()) ** 2 / (P_22 * np.abs(H_22_2.item()) ** 2 + F_2 + sigma_2 ** 2)
     SINR_R2_D22 = P_22 * np.abs(H_22_2.item()) ** 2 / (F_2 + sigma_2 ** 2)
-
-    if(not isOMA):
-        # SINR at Base Station B
-        SINR_B_D11 = P_dash_11 * np.abs(H_1_B.item()) ** 2 / (
-                P_dash_12 * np.abs(H_1_B.item()) ** 2 + (P_dash_21 + P_dash_22) * np.abs(
-            H_2_B.item()) ** 2 + sigma_b ** 2)
-        SINR_B_D12 = P_dash_12 * np.abs(H_1_B.item()) ** 2 / (
-                (P_dash_21 + P_dash_22) * np.abs(H_2_B.item()) ** 2 + sigma_b ** 2)
-        #### Debug ###
-        SINR_B_D21 = P_dash_21 * np.abs(H_2_B.item()) ** 2 / ((P_dash_22) * np.abs(H_2_B.item()) ** 2 + sigma_b ** 2)
-        SINR_B_D22 = P_dash_22 * np.abs(H_2_B.item()) ** 2 / sigma_b ** 2
-    else:
-        # SINR at Base Station B
-        SINR_B_D11 = P_dash_11 * np.abs(H_1_B.item()) ** 2 / ( sigma_b ** 2)
-        SINR_B_D12 = P_dash_12 * np.abs(H_1_B.item()) ** 2 / ( sigma_b ** 2)
-        #### Debug ###
-        SINR_B_D21 = P_dash_21 * np.abs(H_2_B.item()) ** 2 / (sigma_b ** 2)
-        SINR_B_D22 = P_dash_22 * np.abs(H_2_B.item()) ** 2 / sigma_b ** 2
+    # SINR at Base Station B
+    SINR_B_D11 = P_dash_11 * np.abs(H_1_B.item()) ** 2 / (
+            P_dash_12 * np.abs(H_1_B.item()) ** 2 + (P_dash_21 + P_dash_22) * np.abs(
+        H_2_B.item()) ** 2 + sigma_b ** 2)
+    SINR_B_D12 = P_dash_12 * np.abs(H_1_B.item()) ** 2 / (
+            (P_dash_21 + P_dash_22) * np.abs(H_2_B.item()) ** 2 + sigma_b ** 2)
+    #### Debug ###
+    SINR_B_D21 = P_dash_21 * np.abs(H_2_B.item()) ** 2 / ((P_dash_22) * np.abs(H_2_B.item()) ** 2 + sigma_b ** 2)
+    SINR_B_D22 = P_dash_22 * np.abs(H_2_B.item()) ** 2 / sigma_b ** 2
     ### Get SINR ###
-    fac = 1
-    if(not isFD and not isOMA):
-        fac = 1/2
-    elif(isOMA):
-        fac = 1/4
-
     ### Rate of D11 ###
-    rate_D11 = fac*math.log2(1 + find_min(SINR_R1_D11, SINR_B_D11))
+    rate_D11 = math.log2(1 + find_min(SINR_R1_D11, SINR_B_D11))
     ### Rate of D12 ###
-    rate_D12 = fac*math.log2(1 + find_min(SINR_R1_D12, SINR_B_D12))
+    rate_D12 = math.log2(1 + find_min(SINR_R1_D12, SINR_B_D12))
     ### Rate of D21 ###
-    rate_D21 = fac*math.log2(1 + find_min(SINR_R2_D21, SINR_B_D21))
+    rate_D21 = math.log2(1 + find_min(SINR_R2_D21, SINR_B_D21))
     ### Rate of D22 ###
-    rate_D22 = fac*math.log2(1 + find_min(SINR_R2_D22, SINR_B_D22))
-    return H_11_1, H_12_1, H_1_B, H_21_2, H_22_2, H_2_B, P_11, P_12, P_21, P_22, P_dash_11, P_dash_12, P_dash_21, P_dash_22, rate_D11, rate_D12, rate_D21, rate_D22
+    rate_D22 = math.log2(1 + find_min(SINR_R2_D22, SINR_B_D22))
+    penalty = 0.0
+    penalty = evaluate_conditions(H_11_1, H_12_1, H_1_B, H_21_2, H_22_2, H_2_B, P_11, P_12, P_21, P_22, P_dash_11, P_dash_12,
+                        P_dash_21, P_dash_22, rate_D11, rate_D12, rate_D21, rate_D22)
+
+    return (rate_D11 + rate_D12 + rate_D21 + rate_D22) - penalty
 
 
 def evaluate_conditions(H_11_1, H_12_1, H_1_B, H_21_2, H_22_2, H_2_B, P_11, P_12, P_21, P_22, P_dash_11, P_dash_12,
@@ -342,7 +312,6 @@ def evaluate_conditions(H_11_1, H_12_1, H_1_B, H_21_2, H_22_2, H_2_B, P_11, P_12
     condition_3 = (rate_D21 >= R_21_th)
     condition_4 = (rate_D22 >= R_22_th)
     ### Test absolute value of channels ###
-
     condition_5 = np.abs(H_1_B).item() > np.abs(H_2_B).item()
     condition_6 = np.abs(H_11_1).item() > np.abs(H_12_1).item()
     condition_7 = np.abs(H_21_2).item() > np.abs(H_22_2).item()
@@ -365,10 +334,10 @@ def evaluate_conditions(H_11_1, H_12_1, H_1_B, H_21_2, H_22_2, H_2_B, P_11, P_12
     if not condition_5:
         penalty = penalty + 0 if np.abs(H_1_B).item() - np.abs(H_2_B).item() >= 0 else abs(
             np.abs(H_1_B).item() - np.abs(H_2_B).item())
-    if not condition_6 and not isOMA:
+    if not condition_6:
         penalty = penalty + 0 if np.abs(H_11_1).item() - np.abs(H_12_1).item() >= 0 else abs(
             np.abs(H_11_1).item() - np.abs(H_12_1).item())
-    if not condition_7 and not isOMA:
+    if not condition_7:
         penalty = penalty + 0 if np.abs(H_21_2).item() - np.abs(H_22_2).item() >= 0 else abs(
             np.abs(H_21_2).item() - np.abs(H_22_2).item())
     if not condition_8:
@@ -411,16 +380,12 @@ def init_particles():
     pbest = []
     for _ in range(n_particles):
         particle = [random.uniform(bounds[i][0], bounds[i][1]) for i in range(n_dimension)]
-        H_11_1, H_12_1, H_1_B, H_21_2, H_22_2, H_2_B, P_11, P_12, P_21, P_22, P_dash_11, P_dash_12, P_dash_21, P_dash_22, rate_D11, rate_D12, rate_D21, rate_D22 =  evaluate_objective(particle)
-        while (evaluate_conditions(H_11_1, H_12_1, H_1_B, H_21_2, H_22_2, H_2_B, P_11, P_12, P_21, P_22, P_dash_11, P_dash_12, P_dash_21, P_dash_22, rate_D11, rate_D12, rate_D21, rate_D22) != 0.0):
-            particle = [random.uniform(bounds[i][0], bounds[i][1]) for i in range(n_dimension)]
-            H_11_1, H_12_1, H_1_B, H_21_2, H_22_2, H_2_B, P_11, P_12, P_21, P_22, P_dash_11, P_dash_12, P_dash_21, P_dash_22, rate_D11, rate_D12, rate_D21, rate_D22 = evaluate_objective(particle)
         particles.append(particle)
         velocities.append([0] * n_dimension)
         pbest.append(particle[:])
-        np.savez(f'particles_{m_iterations}_{mc_count}', particles)
-        np.savez(f'velocities_{m_iterations}_{mc_count}', velocities)
-        np.savez(f'pbest_{m_iterations}_{mc_count}', velocities)
+        np.savez('particles', particles)
+        np.savez('velocities', velocities)
+        np.savez('pbest', velocities)
     r1 = [np.random.rand(m_iterations, n_particles, n_dimension) for _ in range(mc_count)]
     np.savez('r1', r1)
     r2 = [np.random.rand(m_iterations, n_particles, n_dimension) for _ in range(mc_count)]
@@ -472,35 +437,25 @@ def penalty_pso_function(particles, pbest, velocities, r1, r2):
                                     c1 * random.random() * (pbest[i][j] - particles[i][j]) +
                                     c2 * random.random() * (gbest[j] - particles[i][j]))
                 # new_velocity = 4 if new_velocity >= 4 else new_velocity
-
-                old_position = particles[i][j]
-                old_velocity = velocities[i][j]
                 new_position = particles[i][j] + new_velocity
                 new_position = max(min(new_position, bounds[j][1]), bounds[j][0])
                 particles[i][j] = new_position
                 velocities[i][j] = new_velocity
-                if(death_penalty):
-                    H_11_1, H_12_1, H_1_B, H_21_2, H_22_2, H_2_B, P_11, P_12, P_21, P_22, P_dash_11, P_dash_12, P_dash_21, P_dash_22, rate_D11, rate_D12, rate_D21, rate_D22 = evaluate_objective(particles[i])
-                    if (evaluate_conditions(H_11_1, H_12_1, H_1_B, H_21_2, H_22_2, H_2_B, P_11, P_12, P_21, P_22, P_dash_11, P_dash_12, P_dash_21, P_dash_22, rate_D11, rate_D12, rate_D21, rate_D22) != 0.0):
-                        particles[i][j] = old_position
-                        velocities[i][j] = old_velocity
 
         #Printing
         # if (iter % 100 == 0) or iter == (m_iterations-1):
                 # print(f"Iteration {iter}: Value = {iteration_best_values[iter]}")
 
     return iteration_best_values, iteration_best_values[m_iterations-1]
-# init_channel()
-channels = np.load('channels.npz',allow_pickle=True)
-channels = channels[channels.files[0]].tolist()
-h_I1_1, h_11_I1, h_12_I1, h_12_1, h_11_1, h_I2_2, h_21_I2, h_22_I2, h_21_2, h_22_2, h_IB_B, h_2_IB, h_1_IB, h_2_B, h_1_B, h_IB_1, h_IB_2, h_I1_2, h_I2_1, h_1_1, h_2_2 = channels
-# particles, velocities, pbest = init_particles()
 
+# particles, velocities, pbest = init_particles()
+# init_channel()
 
 # r1 = [np.random.rand(m_iterations, n_particles, n_dimension) for _ in range(mc_count)]
 # r2 = [np.random.rand(m_iterations, n_particles, n_dimension) for _ in range(mc_count)]
 # #
-
+channels = np.load('channels.npz',allow_pickle=True)
+channels = channels[channels.files[0]].tolist()
 velocities = np.load('velocities.npz')
 velocities = velocities[velocities.files[0]].tolist()
 particles = np.load('particles.npz')
@@ -511,62 +466,106 @@ r1 = np.load('r1.npz')
 r1 = r1 [r1.files[0]].tolist()
 r2 = np.load('r2.npz')
 r2 = r2 [r2.files[0]].tolist()
+h_I1_1, h_11_I1, h_12_I1, h_12_1, h_11_1, h_I2_2, h_21_I2, h_22_I2, h_21_2, h_22_2, h_IB_B, h_2_IB, h_1_IB, h_2_B, h_1_B, h_IB_1, h_IB_2, h_I1_2, h_I2_1, h_1_1, h_2_2 = channels
 
-plot = True
-pso_convergence_list=[]
-x =  range(1,m_iterations+1)
 markers = ['o', 's', '^', 'v', '<', '>', 'D', 'P', 'X']
 marker_count=0
+x =  range(1,m_iterations+1)
+
+plot = False
 def calc_sum_rate(type):
     global marker_count
-    print(f"P_dash_max:{P_dash_11_max}")
+    print(f"P_max:{P_12_max}")
     bval_list = []
     best_val_iter_list = []
     for i in range(mc_count):
         best_val_iter, best_val = penalty_pso_function(particles, velocities, pbest, r1[i], r2[i])
         bval_list.append(best_val)
         best_val_iter_list.append(best_val_iter)
-
-    if(plot):
-        pso_convergence = np.mean(best_val_iter_list, axis=0, dtype=np.float64)
-        pso_convergence_list.append(pso_convergence)
-        plt.plot(x, pso_convergence, marker=markers[marker_count], markevery=10, markersize=8, label=f'{type}')
+    pso_convergence = np.mean(best_val_iter_list, axis=0, dtype=np.float64)
+    # np.savez('pso_convergence.npz',pso_convergence)
+    if(plot == True) :
+        plt.plot(x, pso_convergence, marker=markers[marker_count], markevery=10,markersize=8, label=f'{type}')
         marker_count = marker_count + 1
     print('Mean Sum Rate:', np.mean(bval_list))
 
 
-gamma = 1
-mu = 1
-alpha = 1
-beta = 1
-
-
-isFD = True
-isOMA = False
-death_penalty = False
-print("====FD GF-NOMA========")
-type="FD GF-NOMA"
-calc_sum_rate(type)
-isFD = False
-print("====HD GF NOMA========")
-type = 'HD GF-NOMA'
-calc_sum_rate(type)
-isOMA = True
-isFD = False
-print("====FD GF-OMA========")
-type = 'FD GF-OMA'
+c1 = 1.4
+c2 = 1.4
+n_particles = 100
+type=f"c1={c1}, c2={c2}, particles={n_particles}"
+print(type)
 calc_sum_rate(type)
 
 
-plt.xlabel("No. of Iterations",fontsize=16)
-plt.ylabel("Sum Rate (bits/sec/Hz)",fontsize=16)
-plt.legend( prop={'size': 12})
-plt.yticks(fontsize=12)
-plt.xticks(fontsize=12)
+
+c1 = 1.4
+c2 = 1.4
+n_particles = 50
+type=f"c1={c1}, c2={c2}, particles={n_particles}"
+print(type)
+calc_sum_rate(type)
+
+c1 = 1.4
+c2 = 1.4
+n_particles = 20
+type=f"c1={c1}, c2={c2}, particles={n_particles}"
+print(type)
+calc_sum_rate(type)
+
+c1 = 2
+c2 = 2
+n_particles = 100
+type=f"c1={c1}, c2={c2}, particles={n_particles}"
+print(type)
+calc_sum_rate(type)
+
+c1 = 2
+c2 = 2
+n_particles = 50
+type=f"c1={c1}, c2={c2}, particles={n_particles}"
+print(type)
+calc_sum_rate(type)
+
+c1 = 2
+c2 = 2
+n_particles = 20
+type=f"c1={c1}, c2={c2}, particles={n_particles}"
+print(type)
+calc_sum_rate(type)
+
+c1 = 0.5
+c2 = 0.3
+n_particles = 100
+type=f"c1={c1}, c2={c2}, particles={n_particles}"
+print(type)
+calc_sum_rate(type)
+
+c1 = 0.5
+c2 = 0.3
+n_particles = 50
+type=f"c1={c1}, c2={c2}, particles={n_particles}"
+print(type)
+calc_sum_rate(type)
 
 
-current_timestamp = time.time()
-# Save figure object
-with open(f"PSOHD{current_timestamp}", 'wb') as f:
-    pickle.dump(plt.gcf(), f)
-plt.show()
+c1 = 0.5
+c2 = 0.3
+n_particles = 20
+type=f"c1={c1}, c2={c2}, particles={n_particles}"
+print(type)
+calc_sum_rate(type)
+
+# plt.xlabel("No. of Iterations",fontsize=16)
+# plt.ylabel("Sum Rate (bits/sec/Hz)",fontsize=16)
+# plt.legend( prop={'size': 12})
+# plt.yticks(fontsize=12)
+# plt.xticks(fontsize=12)
+#
+#
+# current_timestamp = time.time()
+# # Save figure object
+# with open(f"PSOconvergence{current_timestamp}", 'wb') as f:
+#     pickle.dump(plt.gcf(), f)
+# plt.show()
+

@@ -4,6 +4,8 @@ import numpy as np
 import random
 import math
 import matplotlib.pyplot as plt
+import pyswarms as ps
+from pyswarms.utils.functions import single_obj as fx
 
 def flatten(lst):
     flat_list = []
@@ -26,108 +28,94 @@ def unflatten(flat_list, structure):
         return result
     return helper(structure)
 
-def flatten(lst):
-    flat_list = []
-    for item in lst:
-        if isinstance(item, list):
-            flat_list.extend(flatten(item))
-        else:
-            flat_list.append(item)
-    return flat_list
+# def pso_function(parameter_values, bounds, n_particles, m_iterations, inertia, cognitive, social):
+#
+#     print("PSO Algorithm Started")
+#
+#     num_particles = n_particles
+#     max_iterations = m_iterations
+#     w = inertia  # inertia weight
+#     c1 = cognitive  # cognitive constant
+#     c2 = social  # social constant
+#
+#     para = flatten(parameter_values)
+#     len_para = len(para)
+#     update_bounds = flatten(bounds)
+#
+#
+#     particles = []
+#     velocities = []
+#     pbest = []
+#     gbest = None
+#     gbest_value = -float('inf')
+#     iteration_best_values = []
+#
+#     for _ in range(num_particles):
+#         particle = [random.uniform(bounds[i][0], bounds[i][1]) for i in range(len_para)]
+#         temp_con = unflatten(particle, parameter_values)
+#         while (conditions(temp_con) == False):
+#             particle = [random.uniform(bounds[i][0], bounds[i][1]) for i in range(len_para)]
+#             temp_con = unflatten(particle, parameter_values)
+#         particles.append(particle)
+#         velocities.append([0] * (len_para))
+#         pbest.append(particle[:])
+#
+#     # PSO loop
+#     for iter in range(max_iterations):
+#         iteration_best_value = -float('inf')
+#         for i in range(num_particles):
+#             current_position = particles[i]
+#             temp = unflatten(current_position, parameter_values)
+#             fitness = objective_function(temp)
+#
+#             # Update personal best
+#             temp = unflatten(pbest[i], parameter_values)
+#             if fitness > objective_function(temp):
+#                 pbest[i] = current_position[:]
+#
+#             # Update global best
+#             if fitness > gbest_value:
+#                 gbest = current_position[:]
+#                 gbest_value = fitness
+#
+#             # Update iteration best value
+#             if fitness > iteration_best_value:
+#                 iteration_best_value = fitness
+#
+#         # Record the best value found in this iteration
+#         iteration_best_values.append(iteration_best_value)
+#
+#         # Update velocities and particles
+#         for i in range(num_particles):
+#             for j in range(len_para):
+#                 new_velocity = (w * velocities[i][j] +
+#                                     c1 * random.random() * (pbest[i][j] - particles[i][j]) +
+#                                     c2 * random.random() * (gbest[j] - particles[i][j]))
+#                 new_position = particles[i][j] + new_velocity
+#
+#                 new_position = max(min(new_position, update_bounds[j][1]), update_bounds[j][0])
+#
+#                 # Update only if the new position satisfies the condition
+#                 particles[i][j] = new_position
+#                 velocities[i][j] = new_velocity
+#
+#                 temp_con = unflatten(particles[i], parameter_values)
+#                 if not conditions(temp_con):
+#                     particles[i][j] -= new_velocity
+#                     velocities[i][j] = 0
+#
+#    # if (iter % 100 == 0) or iter == (max_iterations-1):
+#         print(f"Iteration {iter}: Value = {iteration_best_values[iter]}")
+#
+#     return iteration_best_values
 
-def unflatten(flat_list, structure):
-    flat_iter = iter(flat_list)
-    def helper(struct):
-        result = []
-        for elem in struct:
-            if isinstance(elem, list):
-                result.append(helper(elem))
-            else:
-                result.append(next(flat_iter))
-        return result
-    return helper(structure)
-
-def pso_function(parameter, bounds, n_particles, m_iterations, inertia, cognitive, social):
-
-    print("PSO Algorithm Started")
-
-    num_particles = n_particles
-    max_iterations = m_iterations
-    w = inertia  # inertia weight
-    c1 = cognitive  # cognitive constant
-    c2 = social  # social constant
-
-    para = flatten(parameter)
-    len_para = len(para)
-    update_bounds = flatten(bounds)
-
-
-    particles = []
-    velocities = []
-    pbest = []
-    gbest = None
-    gbest_value = -float('inf')
-    iteration_best_values = []
-
-    for _ in range(num_particles):
-        particle = [random.uniform(bounds[i][0], bounds[i][1]) for i in range(len_para)]
-        temp_con = unflatten(particle, parameter)
-        while (conditions(temp_con) == False):
-            particle = [random.uniform(bounds[i][0], bounds[i][1]) for i in range(len_para)]
-            temp_con = unflatten(particle, parameter)
-        particles.append(particle)
-        velocities.append([0] * (len_para))
-        pbest.append(particle[:])
-
-    # PSO loop
-    for iter in range(max_iterations):
-        iteration_best_value = -float('inf')
-        for i in range(num_particles):
-            current_position = particles[i]
-            temp = unflatten(current_position, parameter)
-            fitness = objective_function(temp)
-
-            # Update personal best
-            temp = unflatten(pbest[i], parameter)
-            if fitness > objective_function(temp):
-                pbest[i] = current_position[:]
-
-            # Update global best
-            if fitness > gbest_value:
-                gbest = current_position[:]
-                gbest_value = fitness
-
-            # Update iteration best value
-            if fitness > iteration_best_value:
-                iteration_best_value = fitness
-
-        # Record the best value found in this iteration
-        iteration_best_values.append(iteration_best_value)
-
-        # Update velocities and particles
-        for i in range(num_particles):
-            for j in range(len_para):
-                new_velocity = (w * velocities[i][j] +
-                                    c1 * random.random() * (pbest[i][j] - particles[i][j]) +
-                                    c2 * random.random() * (gbest[j] - particles[i][j]))
-                new_position = particles[i][j] + new_velocity
-
-                new_position = max(min(new_position, update_bounds[j][1]), update_bounds[j][0])
-                old_position = particles[i][j]
-                old_velocity = velocities[i][j]
-                # Update only if the new position satisfies the condition
-                particles[i][j] = new_position
-                velocities[i][j] = new_velocity
-
-                temp_con = unflatten(particles[i], parameter)
-                if not conditions(temp_con):
-                    particles[i][j] = old_position
-                    velocities[i][j] = old_velocity
-        #Printing
-        if (iter % 100 == 0) or iter == (max_iterations-1):
-                print(f"Iteration {iter}: Value = {iteration_best_values[iter]}")
-
-    return iteration_best_values
+def pso_function():
+    global par, bounds, n_particles, m_iterations, inertia, cognitive, social
+    options = {'c1': cognitive, 'c2': social, 'w': inertia}
+    optimizer = ps.single.GlobalBestPSO(n_particles=n_particles, dimensions=56, options=options, bounds=bounds)
+    kwargs = {"zeta_I1l":flatten(zeta_I1), "zeta_I2l":flatten(zeta_I2),  "zeta_IBl":flatten(zeta_IB), "theta_I1l":flatten(theta_I1),"theta_I2l":flatten(theta_I2), "theta_IBl":flatten(theta_IB), "P_11l":P_11, "P_12l":P_12, "P_21l":P_21,"P_22l":P_22, "P_dash_11l":P_dash_11, "P_dash_12l": P_dash_12, "P_dash_21l": P_dash_21, "P_dash_22l":P_dash_22}
+    cost, pos = optimizer.optimize(objective_function, 1000, **kwargs)
+    return cost, pos
 
 M = 1  # No. of antennas on BS
 N = N1 = N2 = NB  = 8  # No. IRS elements
@@ -145,11 +133,19 @@ zeta_IB = [random.uniform(0, 1) for _ in range(N)]
 theta_IB = [random.uniform(0, 2*math.pi) for _ in range(N)]
 
 #### Initialize PSO parameters ####
-n_particles = 100
-m_iterations = 500
-inertia= 0.7
-cognitive = 1.4
-social = 1.4
+n_particles = 30
+m_iterations = 200
+inertia= 0.5
+inertia= 0.9
+cognitive = 0.5
+social = 0.5
+social = 0.3
+
+#     num_particles = n_particles
+#     max_iterations = m_iterations
+#     w = inertia  # inertia weight
+#     c1 = cognitive  # cognitive constant
+#     c2 = social  # social constant
 
 ### Bounds ###
 # bounds = [(0,1)]*(2*M+1)+[(0,1)]*K+[(0,1)]*N+[(0,2*math.pi)]*(2*N)
@@ -162,6 +158,10 @@ social = 1.4
 bounds = [(0,1)]*(3*N) + [(0,2*math.pi)]*(3*N) +  [(0,0.5)]*4 + [(0,1)]*4
 # print(len(bounds))
 
+lower_bound = np.array([0]*3*N + [0]*3*N + [0]*4 + [0]*4)
+upper_bound = np.array([1]*3*N + [2*math.pi]*3*N + [0.5]*4 + [1]*4)
+
+bounds = (lower_bound, upper_bound)
 ### Rate Thresholds ###
 R_11_th = R_12_th = R_21_th = R_22_th = 0.05
 
@@ -204,18 +204,15 @@ SINR_B_D22 = SINR_B_D21 = SINR_B_D12 = SINR_B_D12 = SINR_R2_D22 = SINR_R2_D21 = 
 rate_D11 =  rate_D12 = rate_D21 = rate_D22 = 0
 
 
-
-### Check with Justin ###
 rho = 0.1
 ### We have Power and IRS Phase shifts to optimize ###
 par =  zeta_I1, zeta_I2,  zeta_IB, theta_I1,theta_I2, theta_IB, P_11, P_12, P_21,P_22, P_dash_11, P_dash_12, P_dash_21, P_dash_22
 
-
-
+# par = {zeta_I1, zeta_I2,  zeta_IB, theta_I1,theta_I2, theta_IB, P_11, P_12, P_21,P_22, P_dash_11, P_dash_12, P_dash_21, P_dash_22}
 def find_min(a, b):
   if(a > b):
-    return b
-  return a
+    return a
+  return b
 
 def generate_channel(N, K, path_loss):
     h = (1/np.sqrt(2)) * (np.random.randn(N, K) + 1j * np.random.randn(N, K))
@@ -279,10 +276,7 @@ def reinit():
     ####################### Reflection co-efficient matrix for IRS_2 (I2) #########################
 
     ### Only one phase coefficient matrix is assumed as it is NOT STAR IRS ###
-    try:
-        phi_I2_value = [math.sqrt(zeta) * math.exp(theta) for zeta, theta in zip(zeta_I2, theta_I2)]
-    except ValueError as e:
-        print(e.args, e, zeta_I2, theta_I2)
+    phi_I2_value = [math.sqrt(zeta) * math.exp(theta) for zeta, theta in zip(zeta_I2, theta_I2)]
 
     ### Generate a complex matrix ###
     phi_I2 = np.zeros((N, N), dtype=complex)
@@ -317,7 +311,7 @@ def reinit():
 
     F_1 = (P_21 * np.abs(H_22_1.item()) ** 2) + (
                 (P_dash_21 + P_dash_22) * np.abs(H_2_1.item()) ** 2 + np.abs(h_1_1.item()) ** 2 * rho ** 2 * (
-                    P_dash_11 + P_dash_12))
+                    P_dash_11 + P_dash_12)) + P_22*np.abs(H_22_1)**2
 
     # SINR at R1 to detect symbol of D11 considering D12 as interference assuming H11_1 > H12_1
     SINR_R1_D11 = (P_11 * np.abs(H_11_1.item()) ** 2) / (P_12 * np.abs(H_12_1.item()) ** 2 + F_1 + sigma_1 ** 2)
@@ -327,7 +321,7 @@ def reinit():
 
     # SINR at R2
     F_2 = P_11 * np.abs(H_11_2.item()) ** 2 + P_12 * np.abs(H_12_2.item()) ** 2 + (P_dash_11 + P_dash_12) * np.abs(
-        H_1_2.item()) ** 2 + np.abs(h_2_2.item()) ** 2 * rho ** 2 * (P_dash_21 + P_dash_12)
+        H_1_2.item()) ** 2 + np.abs(h_2_2.item()) ** 2 * rho ** 2 * (P_dash_21 + P_dash_12) + P_dash_22
 
     SINR_R2_D21 = P_21 * np.abs(H_21_2.item()) ** 2 / (P_22 * np.abs(H_22_2.item()) ** 2 + F_2 + sigma_2 ** 2)
     SINR_R2_D22 = P_22 * np.abs(H_22_2.item()) ** 2 / (F_2 + sigma_2 ** 2)
@@ -372,20 +366,24 @@ def conditions(para):
         return True
     return False
 
-def objective_function(para):
+def objective_function(zeta_I1l, zeta_I2l, zeta_IBl, theta_I1l, theta_I2l, theta_IBl, P_11l, P_12l, P_21l, P_22l, P_dash_11l, P_dash_12l, P_dash_21l, P_dash_22l):
+   args = [zeta_I1l, zeta_I2l, zeta_IBl, theta_I1l, theta_I2l, theta_IBl, P_11l, P_12l, P_21l, P_22l, P_dash_11l, P_dash_12l,
+     P_dash_21l, P_dash_22l]
    global zeta_I1, zeta_I2, zeta_IB, theta_I1, theta_I2, theta_IB, P_11, P_12, P_21, P_22, P_dash_11, P_dash_12, P_dash_21, P_dash_22
-   zeta_I1, zeta_I2, zeta_IB, theta_I1, theta_I2, theta_IB, P_11, P_12, P_21, P_22, P_dash_11, P_dash_12, P_dash_21, P_dash_22 = para
+   zeta_I1, zeta_I2, zeta_IB, theta_I1, theta_I2, theta_IB, P_11, P_12, P_21, P_22, P_dash_11, P_dash_12, P_dash_21, P_dash_22 = args
    reinit()
    ## Recalculate rates based on these values.
    return rate_D11 + rate_D11 + rate_D21 +  rate_D22
 
-a = pso_function(par, bounds, n_particles, m_iterations, inertia, cognitive, social)
 
-plt.plot(np.arange(len(a)), a, label='PSO')
-plt.title('Optimization')
-plt.xlabel('Iteration')
-plt.ylabel('Sum Rate')
-plt.legend()
-plt.tight_layout()
-plt.grid(True)
-plt.show()
+pso_function()
+
+# a = pso_function(par, bounds, n_particles, m_iterations, inertia, cognitive, social)
+#
+# plt.plot(np.arange(len(a)), a, label='PSO')
+# plt.title('Optimization')
+# plt.xlabel('Iteration')
+# plt.ylabel('Sum Rate')
+# plt.legend()
+# plt.tight_layout()
+# plt.show()
